@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <title>Mi Progreso — Rutina</title>
+    <meta name="theme-color" content="#10161c" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💪</text></svg>" />
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>💪 Mi Progreso</h1>
+      <div class="header-actions">
+        <button id="export-btn" class="icon-btn" title="Exportar copia de seguridad">Exportar</button>
+        <label class="icon-btn file-label" title="Importar copia de seguridad">
+          Importar
+          <input type="file" id="import-input" accept="application/json" hidden />
+        </label>
+      </div>
+    </header>
+    <nav id="tabs" class="tabs"></nav>
+    <main id="main" class="main"></main>
+    <script src="js/routine.js"></script>
+    <script src="js/app.js"></script>
+  </body>
+</html>
