@@ -60,6 +60,129 @@ body {
   align-items: center;
 }
 
+.gamer-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: var(--bg-card-alt);
+  border-bottom: 1px solid var(--border);
+  font-size: 0.78rem;
+}
+
+.gamer-level {
+  font-weight: 700;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.xp-bar {
+  flex: 1;
+  height: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  min-width: 60px;
+}
+
+.xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent-dim), var(--accent));
+  transition: width 0.4s ease;
+}
+
+.gamer-xp {
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.gamer-streak {
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.toast-stack {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 1000;
+  align-items: center;
+  pointer-events: none;
+}
+
+.toast {
+  background: var(--bg-card-alt);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  text-align: center;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+}
+
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.toast-badge {
+  border-color: #fad165;
+}
+
+.section-title {
+  font-size: 0.95rem;
+  color: var(--text-dim);
+  margin: 20px 0 10px;
+}
+
+.badge-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.badge-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 12px 8px;
+  text-align: center;
+}
+
+.badge-card.locked {
+  opacity: 0.45;
+}
+
+.badge-card.unlocked {
+  border-color: var(--accent);
+}
+
+.badge-icon {
+  font-size: 1.6rem;
+  margin-bottom: 4px;
+}
+
+.badge-name {
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.badge-desc {
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  margin-top: 2px;
+}
+
 .tabs {
   display: flex;
   overflow-x: auto;

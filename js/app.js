@@ -21,6 +21,7 @@ function saveData(data) {
 }
 
 let DATA = loadData();
+let seenBadgeIds = new Set(computeGamification(DATA.entries).unlocked.map((b) => b.id));
 
 function todayISO() {
   const d = new Date();
@@ -81,6 +82,46 @@ function fmtEntry(e) {
 function fmtDate(iso) {
   const [y, m, d] = iso.split('-');
   return `${d}/${m}/${y}`;
+}
+
+// ---------- Gamificación: barra de nivel/racha y toasts ----------
+
+function renderGamerBar() {
+  const bar = document.getElementById('gamer-bar');
+  const g = computeGamification(DATA.entries);
+  const pct = Math.round((g.xpIntoLevel / g.xpForNext) * 100);
+  bar.innerHTML = `
+    <div class="gamer-level">Nivel ${g.level}</div>
+    <div class="xp-bar"><div class="xp-fill" style="width:${pct}%"></div></div>
+    <div class="gamer-xp">${g.xpIntoLevel}/${g.xpForNext} XP</div>
+    <div class="gamer-streak">${g.streak > 0 ? `🔥 ${g.streak}` : '—'}</div>
+  `;
+  return g;
+}
+
+function showToast(html, variant = '') {
+  const stack = document.getElementById('toast-stack');
+  const toast = document.createElement('div');
+  toast.className = 'toast' + (variant ? ` toast-${variant}` : '');
+  toast.innerHTML = html;
+  stack.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('show'));
+  setTimeout(() => {
+    toast.classList.remove('show');
+    setTimeout(() => toast.remove(), 300);
+  }, 2600);
+}
+
+function celebrateAfterSave() {
+  const before = seenBadgeIds;
+  const g = renderGamerBar();
+  showToast(`✨ +${XP_PER_LOG} XP`, 'xp');
+  g.unlocked
+    .filter((b) => !before.has(b.id))
+    .forEach((b, i) => {
+      setTimeout(() => showToast(`<strong>¡Logro desbloqueado!</strong><br>${b.icon} ${b.name}`, 'badge'), 300 + i * 700);
+    });
+  seenBadgeIds = new Set(g.unlocked.map((b) => b.id));
 }
 
 // ---------- Render: pestañas de navegación ----------
@@ -168,6 +209,7 @@ function wireExerciseCard(day, ex) {
       note: fd.get('note'),
     });
     renderDay(day.id);
+    celebrateAfterSave();
   });
 
   const toggleBtn = card.querySelector('.history-toggle');
@@ -207,6 +249,8 @@ function renderHistoryPanel(panel, exerciseId, dayId) {
       deleteEntry(btn.dataset.id);
       renderHistoryPanel(panel, exerciseId, dayId);
       renderDay(dayId);
+      const g = renderGamerBar();
+      seenBadgeIds = new Set(g.unlocked.map((b) => b.id));
     });
   });
 }
@@ -237,6 +281,8 @@ function renderProgreso() {
     .filter((r) => r.count > 0)
     .sort((a, b) => b.count - a.count);
 
+  const g = computeGamification(entries);
+
   main.innerHTML = `
     <h2 class="day-title">Progreso general</h2>
     <div class="stats-row">
@@ -244,10 +290,15 @@ function renderProgreso() {
       <div class="stat-card"><div class="stat-value">${totalRegistros}</div><div class="stat-label">Registros totales</div></div>
       <div class="stat-card"><div class="stat-value">${rows.length}</div><div class="stat-label">Ejercicios con historial</div></div>
     </div>
+    <h3 class="section-title">Logros (${g.unlocked.length}/${g.unlocked.length + g.locked.length})</h3>
+    <div class="badge-grid">
+      ${g.unlocked.map((b) => renderBadge(b, true)).join('')}
+      ${g.locked.map((b) => renderBadge(b, false)).join('')}
+    </div>
     ${
       rows.length === 0
         ? '<p class="empty">Todavía no has registrado ningún entrenamiento. ¡Empieza por un día de la rutina!</p>'
-        : `<div class="progress-list">${rows.map((r) => renderProgressRow(r)).join('')}</div>`
+        : `<h3 class="section-title">Evolución por ejercicio</h3><div class="progress-list">${rows.map((r) => renderProgressRow(r)).join('')}</div>`
     }
   `;
 
@@ -255,6 +306,15 @@ function renderProgreso() {
     const canvas = document.getElementById(`spark-${r.ex.id}`);
     if (canvas) drawSparkline(canvas, r.withWeight.map((e) => e.weight));
   });
+}
+
+function renderBadge(badge, unlocked) {
+  return `
+    <div class="badge-card ${unlocked ? 'unlocked' : 'locked'}">
+      <div class="badge-icon">${unlocked ? badge.icon : '🔒'}</div>
+      <div class="badge-name">${badge.name}</div>
+      <div class="badge-desc">${badge.desc}</div>
+    </div>`;
 }
 
 function renderProgressRow(r) {
@@ -311,6 +371,7 @@ function drawSparkline(canvas, values) {
 function navigate(id) {
   window.location.hash = id;
   renderTabs(id);
+  renderGamerBar();
   if (id === 'progreso') renderProgreso();
   else renderDay(id);
 }
@@ -333,6 +394,7 @@ function importData(file) {
       if (!Array.isArray(parsed.entries)) throw new Error('formato inválido');
       DATA = parsed;
       saveData(DATA);
+      seenBadgeIds = new Set(computeGamification(DATA.entries).unlocked.map((b) => b.id));
       const current = window.location.hash.replace('#', '') || ROUTINE[0].id;
       navigate(current);
       alert('Datos importados correctamente.');
