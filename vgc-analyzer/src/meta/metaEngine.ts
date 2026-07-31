@@ -92,21 +92,12 @@ export function buildSyntheticMetaTeams(
   return teams;
 }
 
-const FALLBACK_ITEMS = ['Sitrus Berry', 'Leftovers', 'Life Orb', 'Focus Sash', 'Covert Cloak', 'Safety Goggles', 'Mystic Water'];
-
-/** Arma los sets del equipo evitando repetir objeto (Item Clause); si el fallback de datos de uso no alcanza, usa una lista generica. */
+/** Arma los sets del equipo evitando repetir objeto (Item Clause); buildCommonSet ya recurre a una lista generica si el dataset no trae alternativa. */
 function assignSetsAvoidingItemClash(members: PokemonUsageStats[]): NamedTeam['team'] {
   const usedItems = new Set<string>();
-  const sets = members.map((m) => {
+  return members.map((m) => {
     const set = buildCommonSet(m, usedItems);
-    // Si species != m.species, buildCommonSet resolvio una forma Mega a su
-    // especie base + Mega Piedra requerida: ese objeto no es sustituible.
-    const itemIsMandatory = set.species !== m.species;
-    if (!itemIsMandatory && usedItems.has(set.item)) {
-      set.item = FALLBACK_ITEMS.find((i) => !usedItems.has(i)) ?? set.item;
-    }
     usedItems.add(set.item);
     return set;
   });
-  return sets;
 }

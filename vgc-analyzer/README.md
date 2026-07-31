@@ -62,6 +62,7 @@ Sobre el motor oficial de Pokémon Showdown (daño, IA vía `RandomPlayerAI`, ob
 - `src/team/typeChart.ts` — matriz de cobertura defensiva y ofensiva contra los 18 tipos.
 - `src/team/redundancy.ts` — roles duplicados sin necesidad (dos Trick Room, dos Intimidate, **dos Mega Piedras en la misma alineación de 4**, tipo sobrerrepresentado...).
 - `src/team/synergy.ts` — sinergias conocidas: clima/terreno + abusador, Trick Room + pegadores lentos, Follow Me/Rage Powder + setup, Intimidate vs. meta físico.
+- `src/team/autobuild.ts` — **arma un equipo completo desde 1 pokémon en adelante** (`vgc team build`): en cada paso agrega el candidato mejor rankeado por `suggest.ts` (cobertura + sinergia + relevancia en el meta) hasta llegar a 6, evitando choques de Item Clause.
 - `src/team/speedTiers.ts` — velocidad real del equipo vs. las amenazas top del meta, en neutral y bajo Trick Room.
 - `src/team/optimizer.ts` — Stat Points (SP)/naturaleza/objeto sugeridos **por miembro, en el contexto de ESE equipo** (no una plantilla genérica: si ya hay Trick Room en el equipo, ajusta velocidad hacia abajo; si no hay control de velocidad propio, prioriza velocidad), con justificación breve.
 - `src/team/suggest.ts` — sugiere el 6to (o siguiente) pokémon dado un núcleo de 4-5, rankeado por cobertura de tipos ganada + sinergias nuevas + relevancia en el meta.
@@ -85,10 +86,23 @@ npm run cli -- meta update
 npm run cli -- meta top -n 17
 npm run cli -- team analyze -t examples/team-balance-core.txt
 npm run cli -- team suggest -t examples/team-balance-core.txt
+npm run cli -- team build -t examples/palafin-start.txt -o mi-equipo.txt
 npm run cli -- report -t examples/team-balance-core.txt -o report.md
 ```
 
 Los equipos se pasan como archivos de texto en formato de exportación de Showdown (`examples/*.txt` son equipos de 6 pokémon legales en Reg M-B, uno de ellos con Mega Evolución). Para Mega Evolución: el equipo lleva la especie base sosteniendo la Mega Piedra (p.ej. `Metagross @ Metagrossite`) — la Mega Evolución ocurre automáticamente en combate, no se declara como especie aparte.
+
+### Armar un equipo desde un solo pokémon (`team build`)
+
+Escribí un archivo con solo el/los pokémon de partida (export de Showdown, con el set que quieras probar) y `vgc team build` completa hasta 6, mostrando por qué eligió cada uno y el equipo final listo para exportar:
+
+```bash
+npm run cli -- team build -t examples/palafin-start.txt -o mi-equipo.txt
+npm run cli -- team analyze -t mi-equipo.txt     # revisa redundancias/sinergias del resultado
+npm run cli -- report -t mi-equipo.txt -o report.md   # win rate real contra el meta
+```
+
+El algoritmo es voraz (agrega el mejor candidato en cada paso, no busca la combinación óptima global), así que siempre conviene correr `team analyze`/`report` sobre el resultado antes de darlo por bueno — puede, por ejemplo, sugerir dos usuarios de Intimidate o dos Mega Piedras si el equipo de partida ya cubre poco.
 
 ## Equipos "sintéticos" del meta
 

@@ -15,7 +15,9 @@ import { findSynergies } from '../team/synergy.js';
 import { computeSpeedTiers } from '../team/speedTiers.js';
 import { suggestTeamSpreads } from '../team/optimizer.js';
 import { suggestNextMember } from '../team/suggest.js';
+import { buildTeamAround } from '../team/autobuild.js';
 import { generateReport } from '../report/markdown.js';
+import { exportTeamText } from '../sim/team.js';
 
 const program = new Command();
 program.name('vgc').description('Analizador competitivo de Pokemon Champions VGC (Reg M-B)').version('0.2.0');
@@ -176,6 +178,43 @@ team
         console.log(`  ${i + 1}. ${s.species} (score ${s.score.toFixed(1)})`);
         s.reasons.forEach((r) => console.log(`     - ${r}`));
       });
+    }
+  });
+
+team
+  .command('build')
+  .description('Completa un equipo (desde 1 pokemon en adelante) hasta 6, agregando en cada paso el mejor candidato del meta')
+  .requiredOption('-t, --team <path>', 'archivo con el/los pokemon de partida (export de Showdown)')
+  .option('-f, --format <format>', 'formato', currentVgcFormat())
+  .option('-n, --n <number>', 'top N del meta a considerar como candidatos', '25')
+  .option('--size <number>', 'tamaño de equipo objetivo', '6')
+  .option('-o, --out <path>', 'archivo de salida con el equipo final (export de Showdown)')
+  .action((o) => {
+    setActiveFormat(o.format);
+    const start = loadTeamFile(o.team);
+    const snapshot = getSnapshotOrSeed(o.format);
+    const core = buildCoreMeta(snapshot, parseInt(o.n, 10));
+
+    const { team: finalTeam, steps } = buildTeamAround(start, core, snapshot, parseInt(o.size, 10));
+
+    console.log(`Equipo de partida: ${start.map((p) => p.species).join(', ')}\n`);
+    console.log('Miembros agregados:');
+    steps.forEach((s, i) => {
+      console.log(`  ${i + 1}. ${s.species}`);
+      s.reasons.forEach((r) => console.log(`     - ${r}`));
+    });
+
+    const validation = validateTeam(finalTeam, o.format);
+    console.log(`\nEquipo final: ${finalTeam.map((p) => p.species).join(', ')}`);
+    console.log(`Legalidad: ${validation.valid ? 'OK ✅' : `problemas: ${validation.problems.join('; ')}`}`);
+
+    const exportText = exportTeamText(finalTeam);
+    console.log('\n--- Exportar a Showdown / Pokemon Champions ---\n');
+    console.log(exportText);
+
+    if (o.out) {
+      writeFileSync(o.out, exportText, 'utf-8');
+      console.log(`(guardado tambien en ${o.out})`);
     }
   });
 
