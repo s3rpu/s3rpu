@@ -104,6 +104,16 @@ npm run cli -- report -t mi-equipo.txt -o report.md   # win rate real contra el 
 
 El algoritmo es voraz (agrega el mejor candidato en cada paso, no busca la combinación óptima global), así que siempre conviene correr `team analyze`/`report` sobre el resultado antes de darlo por bueno — puede, por ejemplo, sugerir dos usuarios de Intimidate o dos Mega Piedras si el equipo de partida ya cubre poco.
 
+### Probar varias variantes y quedarse con la mejor (`team optimize`)
+
+Búsqueda exhaustiva de "todas las combinaciones posibles" no es viable (son prácticamente ilimitadas). `vgc team optimize` hace algo mas honesto y útil: genera unas pocas variantes de equipo genuinamente distintas (ramifica en el primer hueco libre probando varios candidatos top, no solo el mejor) y las evalúa con **combates reales simulados** contra equipos del meta — no solo con la heurística — quedándose con la de mayor win rate real:
+
+```bash
+npm run cli -- team optimize -t examples/palafin-start.txt -o mi-mejor-equipo.txt --variants 4 --battles 15
+```
+
+Tarda más que `team build` (corre `variantes × equipos_rivales × combates` partidas reales) pero la elección final está respaldada por resultados de combate, no solo por la heurística de cobertura/sinergia. Aun así, sigue sin ser óptimo global — es buena práctica correr `team analyze`/`report` sobre el resultado para un último chequeo o para probar ajustes manuales (cambiar un objeto, un moveset) y comparar.
+
 ## Equipos "sintéticos" del meta
 
 Los rivales usados en `sim gauntlet` / `report` no son equipos copiados de un jugador puntual: se arman a partir de los datos reales de uso (o el dataset semilla) siguiendo el grafo de "compañeros de equipo" (% Teammates) de cada pokémon top, evitando choques de Item Clause y resolviendo formas Mega a su especie base + Mega Piedra. Es una reconstrucción razonable pensada para medir matchups contra el meta, documentada como tal en cada informe.

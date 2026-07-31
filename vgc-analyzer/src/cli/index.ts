@@ -15,7 +15,7 @@ import { findSynergies } from '../team/synergy.js';
 import { computeSpeedTiers } from '../team/speedTiers.js';
 import { suggestTeamSpreads } from '../team/optimizer.js';
 import { suggestNextMember } from '../team/suggest.js';
-import { buildTeamAround } from '../team/autobuild.js';
+import { buildTeamAround, buildTeamVariants } from '../team/autobuild.js';
 import { generateReport } from '../report/markdown.js';
 import { exportTeamText } from '../sim/team.js';
 
@@ -210,6 +210,73 @@ team
 
     const exportText = exportTeamText(finalTeam);
     console.log('\n--- Exportar a Showdown / Pokemon Champions ---\n');
+    console.log(exportText);
+
+    if (o.out) {
+      writeFileSync(o.out, exportText, 'utf-8');
+      console.log(`(guardado tambien en ${o.out})`);
+    }
+  });
+
+team
+  .command('optimize')
+  .description('Genera varias variantes de equipo distintas y se queda con la de mejor win rate REAL (combates simulados), no solo la heuristica')
+  .requiredOption('-t, --team <path>', 'archivo con el/los pokemon de partida (export de Showdown)')
+  .option('-f, --format <format>', 'formato', currentVgcFormat())
+  .option('-n, --n <number>', 'top N del meta a considerar como candidatos', '25')
+  .option('--size <number>', 'tamaño de equipo objetivo', '6')
+  .option('--variants <number>', 'cantidad de variantes distintas a probar', '4')
+  .option('--battles <number>', 'combates por rival en la evaluacion de cada variante', '15')
+  .option('--gauntlet-teams <number>', 'cantidad de equipos rivales sinteticos del meta', '4')
+  .option('-o, --out <path>', 'archivo de salida con el MEJOR equipo (export de Showdown)')
+  .action(async (o) => {
+    setActiveFormat(o.format);
+    const start = loadTeamFile(o.team);
+    const snapshot = getSnapshotOrSeed(o.format);
+    const core = buildCoreMeta(snapshot, parseInt(o.n, 10));
+
+    const variants = buildTeamVariants(start, core, snapshot, {
+      targetSize: parseInt(o.size, 10),
+      variants: parseInt(o.variants, 10),
+    });
+
+    console.log(`Probando ${variants.length} variantes distintas a partir de: ${start.map((p) => p.species).join(', ')}\n`);
+    console.log('(No es busqueda exhaustiva -las combinaciones posibles son practicamente ilimitadas-, sino unas pocas variantes genuinamente distintas evaluadas con combates reales contra el meta.)\n');
+
+    const metaTeams = buildSyntheticMetaTeams(snapshot, { teamCount: parseInt(o.gauntletTeams, 10), teamSize: 6 });
+    const battlesPerOpponent = parseInt(o.battles, 10);
+
+    const evaluated: { variant: (typeof variants)[number]; winRate: number; valid: boolean; problems: string[] }[] = [];
+    for (const variant of variants) {
+      const validation = validateTeam(variant.team, o.format);
+      if (!validation.valid) {
+        evaluated.push({ variant, winRate: -1, valid: false, problems: validation.problems });
+        continue;
+      }
+      const result = await runMetaGauntlet(variant.team, metaTeams, { n: battlesPerOpponent, format: o.format });
+      evaluated.push({ variant, winRate: result.overallWinRate, valid: true, problems: [] });
+      console.log(`  variante "${variant.branchedOn}": ${variant.team.map((p) => p.species).join(', ')} -> ${(result.overallWinRate * 100).toFixed(1)}% win rate`);
+    }
+
+    const invalid = evaluated.filter((e) => !e.valid);
+    invalid.forEach((e) => console.log(`  variante "${e.variant.branchedOn}": DESCARTADA (${e.problems.join('; ')})`));
+
+    const ranked = evaluated.filter((e) => e.valid).sort((a, b) => b.winRate - a.winRate);
+    if (ranked.length === 0) {
+      console.log('\nNinguna variante resulto legal.');
+      return;
+    }
+
+    const best = ranked[0]!;
+    console.log(`\nMejor variante: "${best.variant.branchedOn}" con ${(best.winRate * 100).toFixed(1)}% de win rate contra ${metaTeams.length} equipos del meta (${battlesPerOpponent} combates c/u).`);
+    console.log('\nComo se armo:');
+    best.variant.steps.forEach((s, i) => {
+      console.log(`  ${i + 1}. ${s.species}`);
+      s.reasons.forEach((r) => console.log(`     - ${r}`));
+    });
+
+    const exportText = exportTeamText(best.variant.team);
+    console.log('\n--- Mejor equipo: exportar a Showdown / Pokemon Champions ---\n');
     console.log(exportText);
 
     if (o.out) {
