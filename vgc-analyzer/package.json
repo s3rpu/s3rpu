@@ -7,7 +7,7 @@
     "vgc": "./dist/cli/index.js"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && chmod +x dist/cli/index.js",
     "cli": "tsx src/cli/index.ts",
     "dev": "tsx watch src/cli/index.ts",
     "test": "tsx src/test/smoke.ts"

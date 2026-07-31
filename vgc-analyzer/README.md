@@ -9,7 +9,29 @@ cd vgc-analyzer
 npm install
 ```
 
-Todos los comandos se corren con `npm run cli -- <comando>` (usa `tsx`, no hace falta compilar), o `npm run build && node dist/cli/index.js <comando>` para el binario compilado.
+### Modo desarrollo (sin compilar)
+
+```bash
+npm run cli -- formats
+```
+
+### Como ejecutable de verdad
+
+```bash
+npm run build          # compila a dist/ y deja dist/cli/index.js ejecutable
+./dist/cli/index.js formats
+```
+
+O instalalo como comando global `vgc` (usa el `bin` del `package.json`):
+
+```bash
+npm run build
+npm link                # crea el symlink global "vgc" -> dist/cli/index.js
+vgc formats
+vgc sim battle -1 examples/team-flareon-core.txt -2 examples/team-rain-sun.txt
+```
+
+`npm link` requiere permisos de escritura en la carpeta global de npm (con nvm no hace falta sudo). Para desinstalar el comando global: `npm unlink -g vgc-analyzer`. Los ejemplos de abajo usan `npm run cli --` pero funcionan igual con `vgc` una vez linkeado.
 
 ## 1. Motor de datos del meta
 
