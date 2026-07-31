@@ -1,4 +1,7 @@
-import { BattleStreams, RandomPlayerAI, Teams } from '@pkmn/sim';
+import ShowdownPS from 'pokemon-showdown';
+import RandomPlayerAIModule from 'pokemon-showdown/dist/sim/tools/random-player-ai.js';
+const { BattleStream, getPlayerStreams, Teams } = ShowdownPS;
+const { RandomPlayerAI } = RandomPlayerAIModule;
 import type { VgcTeam } from '../types/team.js';
 import { teamToShowdownSets } from './team.js';
 import { currentVgcFormat } from '../data/formats.js';
@@ -31,8 +34,8 @@ export async function runBattle(
   opts: BattleOptions = {},
 ): Promise<BattleResult> {
   const format = opts.format ?? currentVgcFormat();
-  const stream = new BattleStreams.BattleStream({ keepAlive: false });
-  const streams = BattleStreams.getPlayerStreams(stream);
+  const stream = new BattleStream({ keepAlive: false });
+  const streams = getPlayerStreams(stream);
 
   const spec = { formatid: format };
   const p1spec = { name: 'Team A', team: Teams.pack(teamToShowdownSets(teamA) as any) };

@@ -1,5 +1,6 @@
 import type { PokemonUsageStats } from './types.js';
 import type { VgcPokemon } from '../types/team.js';
+import { gen } from '../data/dex.js';
 
 function top(record: Record<string, number>, n = 1): string[] {
   return Object.entries(record)
@@ -17,14 +18,30 @@ function parseSpread(spread: string | undefined): { nature: string; evs: VgcPoke
 
 /** Construye un set "estandar del meta" (el mas usado) para un pokemon, a partir de sus stats de uso.
  * `excludeItems` evita elegir un objeto ya asignado a otro miembro del mismo equipo (Item Clause de VGC). */
+/**
+ * Las stats de uso reportan formas ya Mega-evolucionadas (p.ej. "Charizard-Mega-Y")
+ * como entradas propias, pero un equipo solo puede llevar la especie base
+ * sosteniendo la Mega Piedra correspondiente (la Mega Evolucion ocurre en
+ * combate). Si `species` es una forma Mega, la resolvemos a especie base +
+ * objeto requerido.
+ */
+function resolveBattleLegalSpeciesAndItem(species: string, fallbackItem: string): { species: string; item: string } {
+  const sp = gen().species.get(species);
+  if (sp?.exists && sp.baseSpecies && sp.baseSpecies !== sp.name && sp.requiredItem) {
+    return { species: sp.baseSpecies, item: sp.requiredItem };
+  }
+  return { species, item: fallbackItem };
+}
+
 export function buildCommonSet(mon: PokemonUsageStats, excludeItems?: Set<string>): VgcPokemon {
   const { nature, evs } = parseSpread(top(mon.spreads, 1)[0]);
   const moves = top(mon.moves, 4);
   const rankedItems = Object.entries(mon.items).sort((a, b) => b[1] - a[1]).map(([k]) => k);
-  const item = (excludeItems ? rankedItems.find((i) => !excludeItems.has(i)) : rankedItems[0]) ?? rankedItems[0] ?? '';
+  const preferredItem = (excludeItems ? rankedItems.find((i) => !excludeItems.has(i)) : rankedItems[0]) ?? rankedItems[0] ?? '';
+  const { species, item } = resolveBattleLegalSpeciesAndItem(mon.species, preferredItem);
   return {
     name: mon.species,
-    species: mon.species,
+    species,
     item,
     ability: top(mon.abilities, 1)[0] ?? '',
     level: 50,

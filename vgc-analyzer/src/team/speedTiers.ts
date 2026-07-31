@@ -1,4 +1,4 @@
-import { calcStat, gen } from '../data/dex.js';
+import { calcStat, gen, MAX_SP_PER_STAT } from '../data/dex.js';
 import type { VgcPokemon, VgcTeam } from '../types/team.js';
 import type { CoreMetaEntry } from '../meta/metaEngine.js';
 
@@ -24,15 +24,15 @@ function estimateMetaSpeed(entry: CoreMetaEntry): { baseSpeed: number; speedStat
   const baseSpeed = species?.baseStats.spe ?? 0;
   const spread = entry.commonSet.spread;
   let nature = 'Hardy';
-  let spe = 252;
+  let sp = MAX_SP_PER_STAT;
   if (spread) {
-    const [n, evsPart] = spread.split(':');
+    const [n, spPart] = spread.split(':');
     nature = n || 'Hardy';
-    const parts = (evsPart ?? '').split('/').map(Number);
-    spe = parts[5] ?? 0;
+    const parts = (spPart ?? '').split('/').map(Number);
+    sp = parts[5] ?? 0;
   }
   const scarfed = entry.commonSet.item === 'Choice Scarf';
-  let speedStat = calcStat('spe', baseSpeed, 31, spe, 50, nature);
+  let speedStat = calcStat('spe', baseSpeed, sp, nature);
   if (scarfed) speedStat = Math.floor(speedStat * 1.5);
   return { baseSpeed, speedStat, scarfed };
 }
@@ -41,7 +41,7 @@ function ownSpeed(p: VgcPokemon): { baseSpeed: number; speedStat: number; scarfe
   const species = gen().species.get(p.species);
   const baseSpeed = species?.baseStats.spe ?? 0;
   const scarfed = p.item === 'Choice Scarf';
-  let speedStat = calcStat('spe', baseSpeed, p.ivs.spe, p.evs.spe, p.level, p.nature);
+  let speedStat = calcStat('spe', baseSpeed, p.evs.spe, p.nature);
   if (scarfed) speedStat = Math.floor(speedStat * 1.5);
   return { baseSpeed, speedStat, scarfed };
 }

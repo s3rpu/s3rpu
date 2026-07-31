@@ -26,7 +26,7 @@ function fmtPct(n: number): string {
 function defensiveTable(team: VgcTeam): string {
   const cov = computeDefensiveCoverage(team);
   const rows = ALL_TYPES.map((t) => {
-    const c = cov.byAttackType[t];
+    const c = cov.byAttackType[t]!;
     const mark = c.immune.length ? `inmune (${c.immune.join(', ')})` : c.resist.length ? `resiste (${c.resist.join(', ')})` : c.weak.length ? `**debil** (${c.weak.join(', ')})` : 'neutral';
     return `| ${t} | ${mark} |`;
   });
@@ -40,7 +40,7 @@ function defensiveTable(team: VgcTeam): string {
 function offensiveTable(team: VgcTeam): string {
   const cov = computeOffensiveCoverage(team);
   const rows = ALL_TYPES.map((t) => {
-    const attackers = cov.superEffectiveAgainst[t];
+    const attackers = cov.superEffectiveAgainst[t]!;
     return `| ${t} | ${attackers.length ? attackers.join(', ') : '—'} |`;
   });
   return [
@@ -80,7 +80,7 @@ export async function generateReport(team: VgcTeam, snapshot: MetaSnapshot, opts
   const spreads = suggestTeamSpreads(team, core);
   const suggestions = team.length < 6 ? suggestNextMember(team, core, snapshot) : [];
 
-  const metaTeams = buildSyntheticMetaTeams(snapshot, { teamCount: opts.gauntletTeams ?? 6, teamSize: 4 });
+  const metaTeams = buildSyntheticMetaTeams(snapshot, { teamCount: opts.gauntletTeams ?? 6, teamSize: 6 });
   const gauntlet = await runMetaGauntlet(team, metaTeams, { n: opts.battlesPerOpponent ?? 20, format: opts.format });
 
   const lines: string[] = [];

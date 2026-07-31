@@ -1,4 +1,5 @@
 import type { PokemonUsageStats } from './types.js';
+import { gen } from '../data/dex.js';
 
 export type Role =
   | 'Seteador de clima'
@@ -13,6 +14,7 @@ export type Role =
   | 'Pivote'
   | 'Setup sweeper'
   | 'Choice lock'
+  | 'Mega evolucionador'
   | 'Soporte (pantallas/Helping Hand)'
   | 'Tanque/Muro'
   | 'Atacante físico'
@@ -53,6 +55,7 @@ export function classifyRoles(mon: PokemonUsageStats): Role[] {
   if ([...moves].some((m) => PIVOT_MOVES.has(m))) roles.push('Pivote');
   if ([...moves].some((m) => SETUP_MOVES.has(m))) roles.push('Setup sweeper');
   if (item.startsWith('Choice')) roles.push('Choice lock');
+  if (gen().items.get(item)?.megaStone) roles.push('Mega evolucionador');
   if ([...moves].some((m) => SUPPORT_MOVES.has(m))) roles.push('Soporte (pantallas/Helping Hand)');
   if (TANK_ITEMS.has(item) || TANK_ABILITIES.has(ability)) roles.push('Tanque/Muro');
 

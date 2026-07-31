@@ -1,5 +1,4 @@
-import type { TypeName } from '@pkmn/data';
-import { ALL_TYPES, gen, typeEffectiveness } from '../data/dex.js';
+import { ALL_TYPES, gen, typeEffectiveness, type TypeName } from '../data/dex.js';
 import type { VgcTeam } from '../types/team.js';
 
 export interface DefensiveCoverage {

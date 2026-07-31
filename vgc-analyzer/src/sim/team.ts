@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { Teams, TeamValidator } from '@pkmn/sim';
+import ShowdownPS from 'pokemon-showdown';
+const { Teams, TeamValidator } = ShowdownPS;
 import type { VgcPokemon, VgcTeam } from '../types/team.js';
 import { currentVgcFormat } from '../data/formats.js';
 

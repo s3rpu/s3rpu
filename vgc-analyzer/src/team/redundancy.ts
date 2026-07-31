@@ -40,6 +40,18 @@ export function findRedundancies(team: VgcTeam): RedundancyFinding[] {
     });
   }
 
+  // Pokemon Champions: solo se puede Mega Evolucionar UN pokemon por combate
+  // (recurso compartido del equipo, via el Omni Ring). Llevar 2+ portadores
+  // de Mega Piedra a la MISMA alineacion de 4 suele ser un objeto desperdiciado.
+  const megaHolders = team.filter((p) => gen().items.get(p.item)?.megaStone).map((p) => p.species);
+  if (megaHolders.length >= 2) {
+    findings.push({
+      role: 'Mega Piedra duplicada',
+      members: megaHolders,
+      note: `${megaHolders.length} miembros llevan Mega Piedra, pero solo uno puede Mega Evolucionar por combate; si los 4 elegidos incluyen a ambos, uno esta llevando un objeto sin usar salvo que sea flexibilidad deliberada de Team Preview.`,
+    });
+  }
+
   // Mismo tipo ofensivo primario duplicado en exceso (3+) reduce cobertura de tipos.
   const typeCounts = new Map<string, string[]>();
   for (const p of team) {

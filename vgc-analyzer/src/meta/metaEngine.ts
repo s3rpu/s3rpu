@@ -49,7 +49,7 @@ export function buildSyntheticMetaTeams(
   opts: { teamCount?: number; teamSize?: number; pool?: number } = {},
 ): NamedTeam[] {
   const teamCount = opts.teamCount ?? 8;
-  const teamSize = opts.teamSize ?? 4;
+  const teamSize = opts.teamSize ?? 6;
   const poolSize = opts.pool ?? 30;
 
   const pool = snapshot.pokemon.slice(0, poolSize);
@@ -99,7 +99,10 @@ function assignSetsAvoidingItemClash(members: PokemonUsageStats[]): NamedTeam['t
   const usedItems = new Set<string>();
   const sets = members.map((m) => {
     const set = buildCommonSet(m, usedItems);
-    if (usedItems.has(set.item)) {
+    // Si species != m.species, buildCommonSet resolvio una forma Mega a su
+    // especie base + Mega Piedra requerida: ese objeto no es sustituible.
+    const itemIsMandatory = set.species !== m.species;
+    if (!itemIsMandatory && usedItems.has(set.item)) {
       set.item = FALLBACK_ITEMS.find((i) => !usedItems.has(i)) ?? set.item;
     }
     usedItems.add(set.item);

@@ -1,23 +1,28 @@
-import { Dex } from '@pkmn/sim';
+import ShowdownPS from 'pokemon-showdown';
+const { Dex } = ShowdownPS;
 
 /**
- * Resolucion del formato VGC vigente.
+ * Resolucion del formato vigente de Pokemon Champions VGC.
  *
- * @pkmn/sim trae embebidos los formatos que existian en la version del paquete
- * instalada. Cuando Game Freak / Play! Pokemon publiquen un nuevo Reglamento,
- * `npm update @pkmn/sim` lo incorpora sin tocar este archivo: detectamos el
- * "mas nuevo" formato VGC por orden de aparicion en Dex.formats (Showdown los
- * lista del mas reciente al mas antiguo dentro de cada generacion).
+ * Pokemon Champions (lanzado en Switch el 8/4/2026) es, desde 2026, el
+ * software oficial de VGC para el Circuito de Campeonato y el Mundial. Sus
+ * formatos en el motor de Showdown viven bajo el mod `champions`/`championsregma`
+ * con ids como `gen9championsvgc2026regmb`. Filtramos por "vgc" + gameType
+ * doubles para excluir BSS (singles) y Random Battle.
  */
-export function listVgcFormats(): { id: string; name: string }[] {
+export function listChampionsVgcFormats(): { id: string; name: string; mod: string }[] {
   return Dex.formats
     .all()
-    .filter((f) => /^gen9vgc/.test(f.id))
-    .map((f) => ({ id: f.id, name: f.name }));
+    .filter((f) => /^gen9champions/.test(f.id) && /vgc/i.test(f.id) && f.gameType === 'doubles')
+    .map((f) => ({ id: f.id, name: f.name, mod: f.mod ?? 'champions' }));
 }
 
+/** Mantiene el nombre anterior por compatibilidad interna del codigo. */
+export const listVgcFormats = listChampionsVgcFormats;
+
 function regSortKey(id: string): [number, number] {
-  const m = /^gen9vgc(\d{4})reg([a-z])/.exec(id);
+  // ids tipicos: gen9championsvgc2026regma, gen9championsvgc2026regmb, ...bo3 variantes
+  const m = /^gen9championsvgc(\d{4})regm([a-z])/.exec(id);
   if (!m) return [0, 0];
   const year = parseInt(m[1]!, 10);
   const letter = m[2]!.charCodeAt(0);
@@ -25,15 +30,16 @@ function regSortKey(id: string): [number, number] {
 }
 
 /**
- * El Reglamento vigente es el mas reciente disponible en el paquete @pkmn/sim
- * instalado (mayor anio, y a igualdad de anio, mayor letra de Reglamento).
- * `npm update @pkmn/sim` trae reglamentos nuevos sin tocar este archivo.
+ * El Reglamento vigente es el mas reciente disponible (mayor anio, a igualdad
+ * de anio mayor letra), excluyendo variantes "Bo3" (mismo Reglamento, solo
+ * cambia el formato de partido a mejor-de-3). `npm update pokemon-showdown`
+ * trae reglamentos nuevos sin tocar este archivo.
  */
 export function currentVgcFormat(): string {
   const envOverride = process.env.VGC_FORMAT;
   if (envOverride) return envOverride;
-  const formats = listVgcFormats();
-  if (formats.length === 0) return 'gen9vgc2025regi';
+  const formats = listChampionsVgcFormats().filter((f) => !/bo3$/i.test(f.id));
+  if (formats.length === 0) return 'gen9championsvgc2026regmb';
   return formats
     .slice()
     .sort((a, b) => {

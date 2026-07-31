@@ -6,6 +6,7 @@ import { runBattle } from '../sim/battle.js';
 import { simulateMatch } from '../sim/monteCarlo.js';
 import { runMetaGauntlet } from '../sim/gauntlet.js';
 import { currentVgcFormat, listVgcFormats } from '../data/formats.js';
+import { setActiveFormat } from '../data/dex.js';
 import { updateMeta, getSnapshotOrSeed } from '../meta/store.js';
 import { buildCoreMeta, buildSyntheticMetaTeams } from '../meta/metaEngine.js';
 import { computeDefensiveCoverage, computeOffensiveCoverage } from '../team/typeChart.js';
@@ -17,18 +18,18 @@ import { suggestNextMember } from '../team/suggest.js';
 import { generateReport } from '../report/markdown.js';
 
 const program = new Command();
-program.name('vgc').description('Analizador competitivo de Pokemon VGC').version('0.1.0');
+program.name('vgc').description('Analizador competitivo de Pokemon Champions VGC (Reg M-B)').version('0.2.0');
 
 program
   .command('formats')
-  .description('Lista los formatos VGC disponibles en el motor y cual se usa por defecto')
+  .description('Lista los formatos VGC de Pokemon Champions disponibles en el motor y cual se usa por defecto')
   .action(() => {
     console.log('Formato vigente detectado:', currentVgcFormat());
     console.log('Formatos VGC disponibles:');
     for (const f of listVgcFormats()) console.log(`  ${f.id}  ${f.name}`);
   });
 
-const sim = program.command('sim').description('Simulador de combates (@pkmn/sim)');
+const sim = program.command('sim').description('Simulador de combates (motor oficial pokemon-showdown)');
 
 sim
   .command('battle')
@@ -74,10 +75,11 @@ sim
   .option('--teams <number>', 'cantidad de equipos rivales del meta a generar', '6')
   .option('-f, --format <format>', 'formato a usar', currentVgcFormat())
   .action(async (o) => {
-    const team = loadTeamFile(o.team);
     const format = o.format;
+    setActiveFormat(format);
+    const team = loadTeamFile(o.team);
     const snapshot = getSnapshotOrSeed(format);
-    const metaTeams = buildSyntheticMetaTeams(snapshot, { teamCount: parseInt(o.teams, 10), teamSize: 4 });
+    const metaTeams = buildSyntheticMetaTeams(snapshot, { teamCount: parseInt(o.teams, 10), teamSize: 6 });
     const result = await runMetaGauntlet(team, metaTeams, { n: parseInt(o.n, 10), format });
     console.log(`Win rate global vs top del meta: ${(result.overallWinRate * 100).toFixed(1)}%\n`);
     for (const r of result.perOpponent) {
@@ -101,6 +103,7 @@ meta
   .option('-f, --format <format>', 'formato a actualizar', currentVgcFormat())
   .option('-m, --month <YYYY-MM>', 'mes de Smogon Stats a usar (por defecto, el mes calendario anterior)')
   .action(async (o) => {
+    setActiveFormat(o.format);
     const { snapshot, usedFallback, error } = await updateMeta(o.format, { month: o.month });
     if (usedFallback) {
       console.warn(`No se pudo obtener Smogon Stats en vivo (${error}). Se uso el dataset semilla offline.`);
@@ -114,6 +117,7 @@ meta
   .option('-f, --format <format>', 'formato', currentVgcFormat())
   .option('-n, --n <number>', 'cuantos mostrar', '25')
   .action((o) => {
+    setActiveFormat(o.format);
     const snapshot = getSnapshotOrSeed(o.format);
     const core = buildCoreMeta(snapshot, parseInt(o.n, 10));
     console.log(`Meta ${o.format} — fuente: ${snapshot.source} (actualizado ${snapshot.updatedAt})\n`);
@@ -134,6 +138,7 @@ team
   .option('-f, --format <format>', 'formato', currentVgcFormat())
   .option('-n, --n <number>', 'top N del meta a considerar', '25')
   .action((o) => {
+    setActiveFormat(o.format);
     const t = loadTeamFile(o.team);
     const snapshot = getSnapshotOrSeed(o.format);
     const core = buildCoreMeta(snapshot, parseInt(o.n, 10));
@@ -180,6 +185,7 @@ team
   .requiredOption('-t, --team <path>', 'archivo del equipo (nucleo incompleto)')
   .option('-f, --format <format>', 'formato', currentVgcFormat())
   .action((o) => {
+    setActiveFormat(o.format);
     const t = loadTeamFile(o.team);
     const snapshot = getSnapshotOrSeed(o.format);
     const core = buildCoreMeta(snapshot, 25);
@@ -200,6 +206,7 @@ program
   .option('--battles <number>', 'combates por rival en el gauntlet', '20')
   .option('--gauntlet-teams <number>', 'cantidad de equipos rivales sinteticos', '6')
   .action(async (o) => {
+    setActiveFormat(o.format);
     const t = loadTeamFile(o.team);
     const snapshot = getSnapshotOrSeed(o.format);
     const md = await generateReport(t, snapshot, {
