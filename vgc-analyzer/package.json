@@ -1,0 +1,29 @@
+{
+  "name": "vgc-analyzer",
+  "version": "0.1.0",
+  "description": "Analizador competitivo de Pokemon VGC: motor de meta, simulador de combates (@pkmn/sim) y constructor de equipos con validacion de sinergia.",
+  "type": "module",
+  "bin": {
+    "vgc": "./dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "cli": "tsx src/cli/index.ts",
+    "dev": "tsx watch src/cli/index.ts",
+    "test": "tsx src/test/smoke.ts"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@pkmn/data": "^0.10.11",
+    "@pkmn/dex": "^0.10.11",
+    "@pkmn/randoms": "^0.10.11",
+    "@pkmn/sets": "^5.2.0",
+    "@pkmn/sim": "^0.10.11",
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "tsx": "^4.23.1",
+    "typescript": "^5.9.3"
+  }
+}
