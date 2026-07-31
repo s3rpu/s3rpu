@@ -1,4 +1,4 @@
-import type { VgcTeam } from '../types/team.js';
+import type { NamedTeam, VgcTeam } from '../types/team.js';
 import type { MetaSnapshot } from '../meta/types.js';
 import { buildCoreMeta, buildSyntheticMetaTeams } from '../meta/metaEngine.js';
 import { computeDefensiveCoverage, computeOffensiveCoverage } from '../team/typeChart.js';
@@ -17,6 +17,8 @@ export interface ReportOptions {
   gauntletTeams?: number;
   battlesPerOpponent?: number;
   teamLabel?: string;
+  /** Distribucion del meta a usar como rivales: si se pasa, reemplaza a los equipos sinteticos generados del dataset de uso. */
+  metaTeams?: NamedTeam[];
 }
 
 function fmtPct(n: number): string {
@@ -80,13 +82,15 @@ export async function generateReport(team: VgcTeam, snapshot: MetaSnapshot, opts
   const spreads = suggestTeamSpreads(team, core);
   const suggestions = team.length < 6 ? suggestNextMember(team, core, snapshot) : [];
 
-  const metaTeams = buildSyntheticMetaTeams(snapshot, { teamCount: opts.gauntletTeams ?? 6, teamSize: 6 });
+  const metaTeams = opts.metaTeams ?? buildSyntheticMetaTeams(snapshot, { teamCount: opts.gauntletTeams ?? 6, teamSize: 6 });
   const gauntlet = await runMetaGauntlet(team, metaTeams, { n: opts.battlesPerOpponent ?? 20, format: opts.format });
 
   const lines: string[] = [];
   lines.push(`# Informe VGC — ${label}`);
   lines.push('');
   lines.push(`_Formato: ${opts.format} · Fuente de datos del meta: ${snapshot.source === 'live' ? 'Smogon Stats (real)' : 'dataset semilla offline'} · Actualizado: ${snapshot.updatedAt}_`);
+  lines.push('');
+  lines.push(`_Rivales del gauntlet: ${opts.metaTeams ? `distribucion personalizada (${metaTeams.length} equipos provistos por el usuario)` : `${metaTeams.length} equipos sinteticos generados del dataset de uso`}_`);
   lines.push('');
   lines.push('## Equipo');
   lines.push('');

@@ -1,0 +1,65 @@
+Incineroar @ Sitrus Berry
+Ability: Intimidate
+Level: 50
+Tera Type: Grass
+EVs: 32 HP / 2 Atk / 0 Def / 0 SpA / 32 SpD / 0 Spe
+Careful Nature
+- Fake Out
+- Flare Blitz
+- Darkest Lariat
+- Parting Shot
+
+Garchomp @ Life Orb
+Ability: Rough Skin
+Level: 50
+Tera Type: Fire
+EVs: 0 HP / 32 Atk / 0 Def / 0 SpA / 2 SpD / 32 Spe
+Jolly Nature
+- Earthquake
+- Dragon Claw
+- Rock Slide
+- Protect
+
+Kingambit @ Black Glasses
+Ability: Supreme Overlord
+Level: 50
+Tera Type: Fairy
+EVs: 2 HP / 32 Atk / 0 Def / 0 SpA / 0 SpD / 32 Spe
+Adamant Nature
+- Kowtow Cleave
+- Sucker Punch
+- Iron Head
+- Protect
+
+Sinistcha @ Colbur Berry
+Ability: Hospitality
+Level: 50
+Tera Type: Fairy
+EVs: 32 HP / 0 Atk / 2 Def / 0 SpA / 32 SpD / 0 Spe
+Sassy Nature
+- Rage Powder
+- Matcha Gotcha
+- Trick Room
+- Protect
+
+Metagross @ Metagrossite
+Ability: Clear Body
+Level: 50
+Tera Type: Water
+EVs: 2 HP / 32 Atk / 0 Def / 0 SpA / 0 SpD / 32 Spe
+Adamant Nature
+- Protect
+- Psychic Fangs
+- Iron Head
+- Bullet Punch
+
+Whimsicott @ Focus Sash
+Ability: Prankster
+Level: 50
+Tera Type: Water
+EVs: 32 HP / 0 Atk / 0 Def / 0 SpA / 0 SpD / 32 Spe
+Timid Nature
+- Tailwind
+- Moonblast
+- Encore
+- Protect

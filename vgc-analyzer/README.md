@@ -114,9 +114,19 @@ npm run cli -- team optimize -t examples/palafin-start.txt -o mi-mejor-equipo.tx
 
 Tarda más que `team build` (corre `variantes × equipos_rivales × combates` partidas reales) pero la elección final está respaldada por resultados de combate, no solo por la heurística de cobertura/sinergia. Aun así, sigue sin ser óptimo global — es buena práctica correr `team analyze`/`report` sobre el resultado para un último chequeo o para probar ajustes manuales (cambiar un objeto, un moveset) y comparar.
 
-## Equipos "sintéticos" del meta
+## Equipos "sintéticos" del meta — y por qué no existe "el mejor equipo" absoluto
 
-Los rivales usados en `sim gauntlet` / `report` no son equipos copiados de un jugador puntual: se arman a partir de los datos reales de uso (o el dataset semilla) siguiendo el grafo de "compañeros de equipo" (% Teammates) de cada pokémon top, evitando choques de Item Clause y resolviendo formas Mega a su especie base + Mega Piedra. Es una reconstrucción razonable pensada para medir matchups contra el meta, documentada como tal en cada informe.
+Por defecto, los rivales usados en `sim gauntlet` / `team optimize` / `report` son **sintéticos**: se arman a partir de los datos reales de uso (o el dataset semilla) siguiendo el grafo de "compañeros de equipo" (% Teammates) de cada pokémon top, evitando choques de Item Clause y resolviendo formas Mega a su especie base + Mega Piedra.
+
+Pero en Pokémon competitivo no existe "el mejor equipo posible" en abstracto — solo el que mejor responde a una distribución esperada de rivales. Por eso **esa distribución es configurable**: pasá `--meta-dir <carpeta>` a `sim gauntlet`, `team optimize` o `report` con una carpeta de equipos reales (uno por archivo `.txt`, export de Showdown — de torneo, del ladder, o los que quieras) y la herramienta mide todo contra ESOS rivales en vez de los sintéticos:
+
+```bash
+npm run cli -- sim gauntlet -t mi-equipo.txt --meta-dir examples/meta-dir
+npm run cli -- team optimize -t mi-palafin.txt --meta-dir examples/meta-dir -o mi-mejor-equipo.txt
+npm run cli -- report -t mi-equipo.txt --meta-dir examples/meta-dir -o report.md
+```
+
+`examples/meta-dir/` trae 2 equipos de ejemplo; para que sea representativo de verdad conviene juntar ahí 10-20+ equipos reales (pastes de torneo, exports del ladder, etc.). Todos los equipos en la carpeta pesan igual (misma probabilidad de "enfrentarte" a cada uno) — si querés que alguno pese más, poné una copia extra del archivo.
 
 ## Estructura
 

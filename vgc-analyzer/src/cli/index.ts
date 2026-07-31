@@ -9,6 +9,7 @@ import { currentVgcFormat, listVgcFormats } from '../data/formats.js';
 import { setActiveFormat } from '../data/dex.js';
 import { updateMeta, getSnapshotOrSeed } from '../meta/store.js';
 import { buildCoreMeta, buildSyntheticMetaTeams } from '../meta/metaEngine.js';
+import { loadNamedTeamsFromDir } from '../meta/customMeta.js';
 import { computeDefensiveCoverage, computeOffensiveCoverage } from '../team/typeChart.js';
 import { findRedundancies } from '../team/redundancy.js';
 import { findSynergies } from '../team/synergy.js';
@@ -34,6 +35,16 @@ program
 
 const sim = program.command('sim').description('Simulador de combates (motor oficial pokemon-showdown)');
 
+/** Antes de arrancar un combate real, chequea que el equipo sea legal (6 pokemon, sin choques de Item Clause, etc.) para no crashear feo dentro del motor con un equipo incompleto. */
+function assertBattleReady(team: ReturnType<typeof loadTeamFile>, format: string, label: string): void {
+  const v = validateTeam(team, format);
+  if (!v.valid) {
+    console.error(`Equipo "${label}" no esta listo para combate: ${v.problems.join('; ')}`);
+    console.error('(¿Es un equipo parcial pensado para "team build"/"team optimize"? Esos comandos completan el equipo antes de combatir; "sim battle"/"montecarlo"/"gauntlet" necesitan un equipo ya completo de 6.)');
+    process.exit(1);
+  }
+}
+
 sim
   .command('battle')
   .description('Simula un unico combate entre dos equipos')
@@ -43,6 +54,8 @@ sim
   .action(async (o) => {
     const teamA = loadTeamFile(o.teamA);
     const teamB = loadTeamFile(o.teamB);
+    assertBattleReady(teamA, o.format, o.teamA);
+    assertBattleReady(teamB, o.format, o.teamB);
     const result = await runBattle(teamA, teamB, { format: o.format });
     console.log(`Ganador: ${result.winner === 'p1' ? 'Equipo A' : result.winner === 'p2' ? 'Equipo B' : 'Empate'} en ${result.turns} turnos`);
     console.log('Sobrevivientes A:', result.survivors.p1.join(', ') || '(ninguno)');
@@ -59,6 +72,8 @@ sim
   .action(async (o) => {
     const teamA = loadTeamFile(o.teamA);
     const teamB = loadTeamFile(o.teamB);
+    assertBattleReady(teamA, o.format, o.teamA);
+    assertBattleReady(teamB, o.format, o.teamB);
     const summary = await simulateMatch(teamA, teamB, { n: parseInt(o.n, 10), format: o.format });
     console.log(`Win rate A: ${(summary.winRateA * 100).toFixed(1)}% | B: ${(summary.winRateB * 100).toFixed(1)}% | empates: ${summary.ties}`);
     console.log(`Turnos promedio: ${summary.avgTurns.toFixed(1)}`);
@@ -72,17 +87,22 @@ sim
 
 sim
   .command('gauntlet')
-  .description('Enfrenta un equipo contra todos los equipos sinteticos del top del meta')
+  .description('Enfrenta un equipo contra una distribucion de rivales del meta (sinteticos o una carpeta de equipos reales)')
   .requiredOption('-t, --team <path>', 'archivo del equipo a evaluar')
   .option('-n, --n <number>', 'combates por rival', '20')
-  .option('--teams <number>', 'cantidad de equipos rivales del meta a generar', '6')
+  .option('--teams <number>', 'cantidad de equipos rivales sinteticos a generar (ignorado si se pasa --meta-dir)', '6')
+  .option('--meta-dir <path>', 'carpeta con equipos rivales reales (.txt, uno por equipo) para usar en vez de los sinteticos')
   .option('-f, --format <format>', 'formato a usar', currentVgcFormat())
   .action(async (o) => {
     const format = o.format;
     setActiveFormat(format);
     const team = loadTeamFile(o.team);
+    assertBattleReady(team, format, o.team);
     const snapshot = getSnapshotOrSeed(format);
-    const metaTeams = buildSyntheticMetaTeams(snapshot, { teamCount: parseInt(o.teams, 10), teamSize: 6 });
+    const metaTeams = o.metaDir
+      ? loadNamedTeamsFromDir(o.metaDir)
+      : buildSyntheticMetaTeams(snapshot, { teamCount: parseInt(o.teams, 10), teamSize: 6 });
+    console.log(`Rivales: ${o.metaDir ? `${metaTeams.length} equipos de ${o.metaDir}` : `${metaTeams.length} equipos sinteticos del meta`}\n`);
     const result = await runMetaGauntlet(team, metaTeams, { n: parseInt(o.n, 10), format });
     console.log(`Win rate global vs top del meta: ${(result.overallWinRate * 100).toFixed(1)}%\n`);
     for (const r of result.perOpponent) {
@@ -230,7 +250,8 @@ team
   .option('--branch-depth <number>', 'cuantos huecos libres se ramifican (no solo el primero)', '2')
   .option('--max-variants <number>', 'tope de variantes de composicion a evaluar (branch-width^branch-depth, acotado)', '9')
   .option('--battles <number>', 'combates por rival al evaluar cada variante/spread', '12')
-  .option('--gauntlet-teams <number>', 'cantidad de equipos rivales sinteticos del meta', '3')
+  .option('--gauntlet-teams <number>', 'cantidad de equipos rivales sinteticos del meta (ignorado si se pasa --meta-dir)', '3')
+  .option('--meta-dir <path>', 'carpeta con equipos rivales reales (.txt, uno por equipo) para usar en vez de los sinteticos')
   .option('--no-tune-evs', 'saltear el ajuste de Stat Points por combate (solo elige la composicion del equipo)')
   .option('-o, --out <path>', 'archivo de salida con el MEJOR equipo (export de Showdown)')
   .action(async (o) => {
@@ -250,7 +271,10 @@ team
     console.log(`Probando ${variants.length} variantes distintas a partir de: ${start.map((p) => p.species).join(', ')}`);
     console.log('(No es busqueda exhaustiva -las combinaciones posibles son practicamente ilimitadas-, sino una muestra acotada de composiciones genuinamente distintas evaluadas con combates reales contra el meta.)\n');
 
-    const metaTeams = buildSyntheticMetaTeams(snapshot, { teamCount: parseInt(o.gauntletTeams, 10), teamSize: 6 });
+    const metaTeams = o.metaDir
+      ? loadNamedTeamsFromDir(o.metaDir)
+      : buildSyntheticMetaTeams(snapshot, { teamCount: parseInt(o.gauntletTeams, 10), teamSize: 6 });
+    console.log(`Rivales: ${o.metaDir ? `${metaTeams.length} equipos de ${o.metaDir}` : `${metaTeams.length} equipos sinteticos del meta`}\n`);
     const battlesPerOpponent = parseInt(o.battles, 10);
 
     const evaluated: { variant: (typeof variants)[number]; winRate: number; valid: boolean; problems: string[] }[] = [];
@@ -331,16 +355,19 @@ program
   .option('-f, --format <format>', 'formato', currentVgcFormat())
   .option('-n, --n <number>', 'top N del meta a considerar', '25')
   .option('--battles <number>', 'combates por rival en el gauntlet', '20')
-  .option('--gauntlet-teams <number>', 'cantidad de equipos rivales sinteticos', '6')
+  .option('--gauntlet-teams <number>', 'cantidad de equipos rivales sinteticos (ignorado si se pasa --meta-dir)', '6')
+  .option('--meta-dir <path>', 'carpeta con equipos rivales reales (.txt, uno por equipo) para usar en vez de los sinteticos')
   .action(async (o) => {
     setActiveFormat(o.format);
     const t = loadTeamFile(o.team);
+    assertBattleReady(t, o.format, o.team);
     const snapshot = getSnapshotOrSeed(o.format);
     const md = await generateReport(t, snapshot, {
       format: o.format,
       topN: parseInt(o.n, 10),
       battlesPerOpponent: parseInt(o.battles, 10),
       gauntletTeams: parseInt(o.gauntletTeams, 10),
+      metaTeams: o.metaDir ? loadNamedTeamsFromDir(o.metaDir) : undefined,
       teamLabel: o.team,
     });
     writeFileSync(o.out, md, 'utf-8');
