@@ -1,0 +1,61 @@
+Palafin @ Mystic Water  
+Ability: Zero to Hero  
+Level: 50  
+Tera Type: Fighting  
+EVs: 2 HP / 32 Atk / 32 Spe  
+Adamant Nature  
+- Flip Turn  
+- Jet Punch  
+- Wave Crash  
+- Protect  
+
+Sinistcha @ Sitrus Berry  
+Ability: Hospitality  
+Level: 50  
+EVs: 32 HP / 2 Def / 32 SpD  
+Sassy Nature  
+- Matcha Gotcha  
+- Rage Powder  
+- Protect  
+- Trick Room  
+
+Incineroar @ Leftovers  
+Ability: Intimidate  
+Level: 50  
+EVs: 32 HP / 2 Atk / 32 SpD  
+Careful Nature  
+- Fake Out  
+- Flare Blitz  
+- Darkest Lariat  
+- Parting Shot  
+
+Metagross-Mega (Metagross) @ Metagrossite  
+Ability: Tough Claws  
+Level: 50  
+EVs: 2 HP / 32 Atk / 32 Spe  
+Adamant Nature  
+- Protect  
+- Psychic Fangs  
+- Iron Head  
+- Bullet Punch  
+
+Tyranitar-Mega (Tyranitar) @ Tyranitarite  
+Ability: Sand Stream  
+Level: 50  
+EVs: 2 HP / 32 Atk / 32 Spe  
+Adamant Nature  
+- Protect  
+- Rock Slide  
+- Crunch  
+- Low Kick  
+
+Staraptor @ Life Orb  
+Ability: Intimidate  
+Level: 50  
+EVs: 2 HP / 32 Atk / 32 Spe  
+Adamant Nature  
+- Protect  
+- Double-Edge  
+- Close Combat  
+- U-turn  
+

@@ -1,0 +1,65 @@
+Pelipper @ Focus Sash
+Ability: Drizzle
+Level: 50
+Tera Type: Steel
+EVs: 32 HP / 0 Atk / 32 Def / 0 SpA / 0 SpD / 2 Spe
+Bold Nature
+- Hurricane
+- Wide Guard
+- Tailwind
+- Protect
+
+Swampert @ Swampertite
+Ability: Torrent
+Level: 50
+Tera Type: Grass
+EVs: 2 HP / 32 Atk / 0 Def / 0 SpA / 0 SpD / 32 Spe
+Adamant Nature
+- Wave Crash
+- Earthquake
+- Ice Punch
+- Protect
+
+Basculegion @ Choice Scarf
+Ability: Adaptability
+Level: 50
+Tera Type: Ghost
+EVs: 0 HP / 32 Atk / 0 Def / 0 SpA / 2 SpD / 32 Spe
+Jolly Nature
+- Last Respects
+- Wave Crash
+- Aqua Jet
+- Flip Turn
+
+Raichu @ Life Orb
+Ability: Lightning Rod
+Level: 50
+Tera Type: Psychic
+EVs: 2 HP / 0 Atk / 0 Def / 32 SpA / 0 SpD / 32 Spe
+Timid Nature
+- Volt Switch
+- Thunderbolt
+- Fake Out
+- Protect
+
+Grimmsnarl @ Light Clay
+Ability: Prankster
+Level: 50
+Tera Type: Fairy
+EVs: 32 HP / 0 Atk / 2 Def / 0 SpA / 32 SpD / 0 Spe
+Careful Nature
+- Light Screen
+- Reflect
+- Spirit Break
+- Taunt
+
+Staraptor @ Muscle Band
+Ability: Intimidate
+Level: 50
+Tera Type: Normal
+EVs: 2 HP / 32 Atk / 0 Def / 0 SpA / 0 SpD / 32 Spe
+Adamant Nature
+- Double-Edge
+- Close Combat
+- U-turn
+- Protect

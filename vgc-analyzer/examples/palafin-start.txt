@@ -1,0 +1,10 @@
+Palafin @ Mystic Water
+Ability: Zero to Hero
+Level: 50
+Tera Type: Fighting
+EVs: 2 HP / 32 Atk / 0 Def / 0 SpA / 0 SpD / 32 Spe
+Adamant Nature
+- Flip Turn
+- Jet Punch
+- Wave Crash
+- Protect

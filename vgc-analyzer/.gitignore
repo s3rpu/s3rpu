@@ -1,0 +1,6 @@
+node_modules/
+dist/
+data/meta-*.json
+*.log
+evolve-checkpoint*.json
+report.md

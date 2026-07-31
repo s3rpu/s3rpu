@@ -1,0 +1,25 @@
+{
+  "name": "vgc-analyzer",
+  "version": "0.2.0",
+  "description": "Analizador competitivo de Pokemon Champions VGC (Reg M-B): motor de meta, simulador de combates (motor oficial pokemon-showdown) y constructor de equipos con validacion de sinergia.",
+  "type": "module",
+  "bin": {
+    "vgc": "./dist/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json && chmod +x dist/cli/index.js",
+    "cli": "tsx src/cli/index.ts",
+    "dev": "tsx watch src/cli/index.ts",
+    "test": "tsx src/test/smoke.ts"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^12.1.0",
+    "pokemon-showdown": "^0.11.11"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.1",
+    "tsx": "^4.23.1",
+    "typescript": "^5.9.3"
+  }
+}
