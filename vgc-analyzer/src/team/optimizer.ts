@@ -115,3 +115,46 @@ function clampToStatPointBudget(evs: EVSpread): EVSpread {
 export function suggestTeamSpreads(team: VgcTeam, metaThreats: CoreMetaEntry[]): OptimizerSuggestion[] {
   return team.map((m) => suggestSpread(m, team, metaThreats));
 }
+
+const SPEED_NATURE_TO_BULK: Record<string, string> = { Jolly: 'Adamant', Timid: 'Modest' };
+const BULK_NATURE_TO_SPEED: Record<string, string> = { Adamant: 'Jolly', Modest: 'Timid', Brave: 'Jolly', Quiet: 'Timid' };
+
+/**
+ * Ademas de la sugerencia "estandar" de `suggestSpread`, genera UNA
+ * alternativa genuinamente distinta que invierte la decision mas
+ * determinante de un spread VGC: velocidad vs. bulk. Estan pensadas para
+ * probarse contra el motor de combate real (ver `team/tuneSpreads.ts`) y
+ * quedarse con la que efectivamente gane mas, en vez de asumir que la
+ * heuristica siempre acierta.
+ */
+export function suggestSpreadAlternatives(member: VgcPokemon, team: VgcTeam, metaThreats: CoreMetaEntry[]): OptimizerSuggestion[] {
+  const primary = suggestSpread(member, team, metaThreats);
+  const alt: OptimizerSuggestion = {
+    species: primary.species,
+    nature: primary.nature,
+    evs: { ...primary.evs },
+    item: primary.item,
+    justification: [],
+  };
+
+  if (primary.evs.spe >= 20 && SPEED_NATURE_TO_BULK[primary.nature]) {
+    // Alternativa: resignar velocidad por bulk (HP), manteniendo el ataque al tope.
+    const freed = primary.evs.spe;
+    alt.evs.spe = 0;
+    alt.evs.hp = Math.min(MAX_SP_PER_STAT, alt.evs.hp + freed);
+    alt.nature = SPEED_NATURE_TO_BULK[primary.nature]!;
+    alt.justification.push(`Alternativa "bulky": resigna Velocidad (0 SP) y vuelca esos puntos a HP (nature ${alt.nature}) para aguantar mejor en vez de adelantarse en el orden de turno.`);
+  } else if (primary.evs.spe === 0 && primary.evs.hp >= 20 && BULK_NATURE_TO_SPEED[primary.nature]) {
+    // Alternativa: resignar bulk (HP) por velocidad.
+    const freed = primary.evs.hp;
+    alt.evs.hp = 0;
+    alt.evs.spe = Math.min(MAX_SP_PER_STAT, alt.evs.spe + freed);
+    alt.nature = BULK_NATURE_TO_SPEED[primary.nature]!;
+    alt.justification.push(`Alternativa "veloz": resigna HP y vuelca esos puntos a Velocidad (nature ${alt.nature}) para actuar antes en vez de aguantar un golpe extra.`);
+  } else {
+    return [primary];
+  }
+
+  alt.evs = clampToStatPointBudget(alt.evs);
+  return [primary, alt];
+}

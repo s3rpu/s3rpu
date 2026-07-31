@@ -49,7 +49,7 @@ export function buildTeamAround(
 }
 
 export interface TeamVariant {
-  /** Especie por la que se ramifico esta variante (el candidato alternativo probado en el primer hueco libre). */
+  /** Camino de especies por el que se ramifico esta variante (los huecos donde se probaron alternativas, no solo la mejor). */
   branchedOn: string;
   team: VgcTeam;
   steps: AutoBuildStep[];
@@ -58,44 +58,62 @@ export interface TeamVariant {
 /**
  * Genera varios equipos completos DISTINTOS a partir del mismo nucleo:
  * en vez de completar con un unico camino voraz (como `buildTeamAround`),
- * prueba los top `variants` candidatos para el primer hueco libre y, para
- * cada uno, completa el resto de forma voraz. No es busqueda exhaustiva
+ * ramifica en los primeros `branchDepth` huecos libres probando hasta
+ * `branchWidth` candidatos en cada uno (arbol de busqueda acotado), y
+ * completa el resto de cada rama de forma voraz. No es busqueda exhaustiva
  * (eso no es viable: hay combinaciones practicamente ilimitadas de
- * movimientos/objetos/EVs) — es una muestra razonable de variantes
- * genuinamente distintas, pensada para evaluarlas con combates reales
- * despues (ver `sim/gauntlet.ts`) en vez de confiar solo en la heuristica.
+ * movimientos/objetos/EVs) — es una muestra razonable y MAS AMPLIA que
+ * ramificar solo el primer hueco, pensada para evaluar cada variante con
+ * combates reales despues (ver `sim/gauntlet.ts`) en vez de confiar solo en
+ * la heuristica de cobertura/sinergia.
  */
 export function buildTeamVariants(
   core: VgcTeam,
   metaTop: CoreMetaEntry[],
   snapshot: MetaSnapshot,
-  opts: { targetSize?: number; variants?: number } = {},
+  opts: { targetSize?: number; branchWidth?: number; branchDepth?: number; maxVariants?: number } = {},
 ): TeamVariant[] {
   const targetSize = opts.targetSize ?? 6;
-  const variantCount = opts.variants ?? 4;
+  const branchWidth = Math.max(1, opts.branchWidth ?? 3);
+  const branchDepth = Math.max(1, opts.branchDepth ?? 2);
+  const maxVariants = opts.maxVariants ?? 16;
 
-  if (core.length >= targetSize) {
-    return [{ branchedOn: core[core.length - 1]?.species ?? '', team: core, steps: [] }];
-  }
+  const results: TeamVariant[] = [];
 
-  const branchCandidates = suggestNextMember(core, metaTop, snapshot, variantCount);
-  const variants: TeamVariant[] = [];
-
-  for (const candidate of branchCandidates) {
-    const stats = findUsageStats(snapshot, candidate.species);
-    if (!stats) continue;
-
-    const usedItems = new Set(core.map((p) => p.item).filter(Boolean));
-    const firstSet = buildCommonSet(stats, usedItems);
-    const partial: VgcTeam = [...core, firstSet];
-
+  function finish(partial: VgcTeam, branchedSteps: AutoBuildStep[]) {
     const { team, steps } = buildTeamAround(partial, metaTop, snapshot, targetSize);
-    variants.push({
-      branchedOn: candidate.species,
+    results.push({
+      branchedOn: branchedSteps.map((s) => s.species).join(' > ') || partial[partial.length - 1]?.species || '',
       team,
-      steps: [{ species: candidate.species, reasons: candidate.reasons }, ...steps],
+      steps: [...branchedSteps, ...steps],
     });
   }
 
-  return variants;
+  function recurse(partial: VgcTeam, branchedSteps: AutoBuildStep[], depthRemaining: number) {
+    if (results.length >= maxVariants) return;
+    if (partial.length >= targetSize || depthRemaining <= 0) {
+      finish(partial, branchedSteps);
+      return;
+    }
+
+    const candidates = suggestNextMember(partial, metaTop, snapshot, branchWidth);
+    if (candidates.length === 0) {
+      finish(partial, branchedSteps);
+      return;
+    }
+
+    for (const candidate of candidates) {
+      if (results.length >= maxVariants) break;
+      const stats = findUsageStats(snapshot, candidate.species);
+      if (!stats) continue;
+
+      const usedItems = new Set(partial.map((p) => p.item).filter(Boolean));
+      const set = buildCommonSet(stats, usedItems);
+      const nextPartial: VgcTeam = [...partial, set];
+      recurse(nextPartial, [...branchedSteps, { species: candidate.species, reasons: candidate.reasons }], depthRemaining - 1);
+    }
+  }
+
+  recurse(core, [], branchDepth);
+  return results;
 }
