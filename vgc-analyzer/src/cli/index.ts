@@ -18,6 +18,7 @@ import { suggestTeamSpreads } from '../team/optimizer.js';
 import { suggestNextMember } from '../team/suggest.js';
 import { buildTeamAround, buildTeamVariants } from '../team/autobuild.js';
 import { tuneTeamSpreads } from '../team/tuneSpreads.js';
+import { evolveTeam } from '../team/evolve.js';
 import { generateReport } from '../report/markdown.js';
 import { exportTeamText } from '../sim/team.js';
 
@@ -322,6 +323,73 @@ team
 
     const exportText = exportTeamText(finalTeam);
     console.log('\n--- Equipo final: exportar a Showdown / Pokemon Champions ---\n');
+    console.log(exportText);
+
+    if (o.out) {
+      writeFileSync(o.out, exportText, 'utf-8');
+      console.log(`(guardado tambien en ${o.out})`);
+    }
+  });
+
+team
+  .command('evolve')
+  .description('Optimizador evolutivo: mantiene una poblacion de equipos, la mide con combates reales y la mejora por generaciones (pensado para dejar corriendo horas)')
+  .option('-t, --team <path>', 'equipo/nucleo de partida opcional (si no se pasa, arranca de una poblacion aleatoria del meta)')
+  .option('-f, --format <format>', 'formato', currentVgcFormat())
+  .option('-n, --n <number>', 'top N del meta a considerar como pool de especies/mutaciones', '25')
+  .option('--population <number>', 'tamaño de la poblacion', '16')
+  .option('--elite <number>', 'cuantos individuos top se conservan sin cambios cada generacion', '3')
+  .option('--battles <number>', 'combates por rival para medir fitness durante la evolucion (barato, se corre muchas veces)', '6')
+  .option('--final-battles <number>', 'combates por rival para la evaluacion final del campeon (mas preciso)', '40')
+  .option('--gauntlet-teams <number>', 'cantidad de equipos rivales sinteticos (ignorado si se pasa --meta-dir)', '4')
+  .option('--meta-dir <path>', 'carpeta con equipos rivales reales para medir el fitness')
+  .option('--generations <number>', 'tope de generaciones (si no se pasa, solo para por --hours)')
+  .option('--hours <number>', 'tope de horas corriendo (por defecto 1 si no se especifica ni generations ni hours)')
+  .option('--checkpoint <path>', 'archivo de estado para pausar/resumir (si existe, retoma desde ahi)', 'evolve-checkpoint.json')
+  .option('-o, --out <path>', 'archivo de salida con el campeon final (export de Showdown)')
+  .action(async (o) => {
+    setActiveFormat(o.format);
+    const seedTeam = o.team ? loadTeamFile(o.team) : undefined;
+    const snapshot = getSnapshotOrSeed(o.format);
+    const core = buildCoreMeta(snapshot, parseInt(o.n, 10));
+    const metaTeams = o.metaDir
+      ? loadNamedTeamsFromDir(o.metaDir)
+      : buildSyntheticMetaTeams(snapshot, { teamCount: parseInt(o.gauntletTeams, 10), teamSize: 6 });
+
+    const maxGenerations = o.generations ? parseInt(o.generations, 10) : undefined;
+    const maxDurationMs = o.hours ? parseFloat(o.hours) * 3_600_000 : maxGenerations ? undefined : 3_600_000;
+
+    console.log(`Poblacion: ${o.population} | rivales: ${metaTeams.length} (${o.metaDir ? 'personalizados' : 'sinteticos'}) | checkpoint: ${o.checkpoint}`);
+    console.log(maxGenerations ? `Tope: ${maxGenerations} generaciones.` : `Tope: ${(maxDurationMs! / 3_600_000).toFixed(2)} horas.`);
+    console.log('Ctrl+C para parar de forma prolija (guarda checkpoint y corta despues de la generacion en curso). Volver a correr el mismo comando resume desde el checkpoint.\n');
+
+    const startedAt = Date.now();
+    const result = await evolveTeam({
+      format: o.format,
+      metaTeams,
+      metaTop: core,
+      snapshot,
+      checkpointPath: o.checkpoint,
+      populationSize: parseInt(o.population, 10),
+      eliteCount: parseInt(o.elite, 10),
+      quickBattles: parseInt(o.battles, 10),
+      maxGenerations,
+      maxDurationMs,
+      seedTeam,
+      onGeneration: (stat) => {
+        const elapsedMin = ((Date.now() - startedAt) / 60000).toFixed(1);
+        console.log(`  gen ${stat.generation} (${elapsedMin} min): mejor ${(stat.bestFitness * 100).toFixed(1)}% | promedio ${(stat.avgFitness * 100).toFixed(1)}% | campeon: ${stat.bestTeamSpecies.join(', ')}`);
+      },
+    });
+
+    const champion = result.population[0]!;
+    console.log(`\n== Evaluacion final del campeon (${o.finalBattles} combates c/u, mas preciso) ==`);
+    const finalResult = await runMetaGauntlet(champion, metaTeams, { n: parseInt(o.finalBattles, 10), format: o.format });
+    console.log(`Win rate final: ${(finalResult.overallWinRate * 100).toFixed(1)}% tras ${result.generation + 1} generaciones.`);
+    finalResult.perOpponent.forEach((r) => console.log(`  ${r.opponent}: ${(r.summary.winRateA * 100).toFixed(1)}%`));
+
+    const exportText = exportTeamText(champion);
+    console.log('\n--- Campeon: exportar a Showdown / Pokemon Champions ---\n');
     console.log(exportText);
 
     if (o.out) {

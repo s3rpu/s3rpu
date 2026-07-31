@@ -109,10 +109,24 @@ El algoritmo es voraz (agrega el mejor candidato en cada paso, no busca la combi
 Búsqueda exhaustiva de "todas las combinaciones posibles" no es viable (son prácticamente ilimitadas). `vgc team optimize` hace algo mas honesto y útil: genera unas pocas variantes de equipo genuinamente distintas (ramifica en el primer hueco libre probando varios candidatos top, no solo el mejor) y las evalúa con **combates reales simulados** contra equipos del meta — no solo con la heurística — quedándose con la de mayor win rate real:
 
 ```bash
-npm run cli -- team optimize -t examples/palafin-start.txt -o mi-mejor-equipo.txt --variants 4 --battles 15
+npm run cli -- team optimize -t examples/palafin-start.txt -o mi-mejor-equipo.txt --branch-width 3 --branch-depth 2 --battles 15
 ```
 
-Tarda más que `team build` (corre `variantes × equipos_rivales × combates` partidas reales) pero la elección final está respaldada por resultados de combate, no solo por la heurística de cobertura/sinergia. Aun así, sigue sin ser óptimo global — es buena práctica correr `team analyze`/`report` sobre el resultado para un último chequeo o para probar ajustes manuales (cambiar un objeto, un moveset) y comparar.
+Ramifica en los primeros `--branch-depth` huecos libres (no solo el primero) probando `--branch-width` candidatos en cada uno, completa cada rama, y prueba tambien la alternativa velocidad-vs-bulk de Stat Points en combate real (`--no-tune-evs` para saltear esa segunda etapa). Tarda más que `team build` pero la elección final está respaldada por resultados de combate, no solo por la heurística de cobertura/sinergia. Aun así, sigue sin ser óptimo global — sigue siendo una muestra acotada de variantes, no una búsqueda exhaustiva (eso no es viable). Para una búsqueda mucho más profunda y sostenida, ver `team evolve` abajo.
+
+### Optimizador evolutivo — para dejarlo corriendo horas (`team evolve`)
+
+`team optimize` prueba un puñado de variantes y termina. `team evolve` es lo que pedís cuando querés que siga buscando de verdad: mantiene una **población** de equipos completos (composición + movimientos + objetos + naturaleza + Stat Points), mide el win rate real de cada uno contra el gauntlet, cruza y muta a los mejores (descubriendo movimientos/objetos nuevos probándolos contra el validador real, no de una lista fija), descarta a los peores, y repite generación tras generación:
+
+```bash
+npm run cli -- team evolve -t examples/palafin-start.txt --hours 3 --population 24 -o mi-campeon.txt
+```
+
+- Guarda **checkpoint** después de cada generación (`--checkpoint archivo.json`, por defecto `evolve-checkpoint.json`) — podés cortarlo con Ctrl+C en cualquier momento (termina la generación en curso de forma prolija) y volver a correr el mismo comando para **resumir** exactamente donde quedó.
+- `--hours 3` (o `--generations N`) define cuánto corre; si no ponés ninguno de los dos, corre 1 hora por defecto.
+- Las mutaciones son legales de verdad: cada movimiento/objeto propuesto se valida contra el motor real antes de aceptarse (así se "descubren" sets que no están en ninguna lista de uso, no solo se copian los del meta).
+- El win rate que ves por generación usa pocos combates (`--battles`, barato, para poder correr miles de generaciones) y es ruidoso a propósito; al final corre una evaluación mucho más precisa (`--final-battles`, por defecto 40) sobre el campeón antes de mostrar el resultado — ese último número es el confiable.
+- Dejalo corriendo en tu máquina (mejor hardware/tiempo que una sesión de trabajo) durante horas para una búsqueda genuinamente más profunda; con `--meta-dir` corre contra tu propia distribución de rivales reales en vez de los sintéticos.
 
 ## Equipos "sintéticos" del meta — y por qué no existe "el mejor equipo" absoluto
 
