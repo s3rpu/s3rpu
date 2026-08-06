@@ -3,7 +3,7 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - claude/progress-tracking-app-y152o3
+      - claude/contact-manager-app-syyrgu
   workflow_dispatch:
 
 permissions:

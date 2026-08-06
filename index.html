@@ -3,28 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-    <title>Mi Progreso — Rutina</title>
+    <title>Directorio de Contactos — Ayuntamiento</title>
     <meta name="theme-color" content="#10161c" />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💪</text></svg>" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📇</text></svg>" />
     <link rel="stylesheet" href="css/style.css" />
   </head>
   <body>
     <header class="app-header">
-      <h1>💪 Mi Progreso</h1>
+      <h1>📇 Directorio de Contactos</h1>
       <div class="header-actions">
-        <button id="export-btn" class="icon-btn" title="Exportar copia de seguridad">Exportar</button>
-        <label class="icon-btn file-label" title="Importar copia de seguridad">
-          Importar
+        <label class="icon-btn file-label" title="Importar contactos masivamente desde un Excel o CSV">
+          Importar Excel/CSV
+          <input type="file" id="excel-input" accept=".xlsx,.xls,.csv" hidden />
+        </label>
+        <button id="export-btn" class="icon-btn" title="Descargar copia de seguridad de todos los datos">Exportar backup</button>
+        <label class="icon-btn file-label" title="Restaurar una copia de seguridad">
+          Importar backup
           <input type="file" id="import-input" accept="application/json" hidden />
         </label>
       </div>
     </header>
-    <div id="gamer-bar" class="gamer-bar"></div>
     <nav id="tabs" class="tabs"></nav>
     <main id="main" class="main"></main>
+    <div id="modal-overlay" class="modal-overlay" hidden></div>
     <div id="toast-stack" class="toast-stack"></div>
-    <script src="js/routine.js"></script>
-    <script src="js/gamification.js"></script>
+    <script src="js/vendor/xlsx.full.min.js"></script>
+    <script src="js/data.js"></script>
     <script src="js/app.js"></script>
   </body>
 </html>

@@ -1,102 +1,9 @@
-// App de seguimiento de progreso de entrenamiento.
-// Todos los datos se guardan en localStorage del navegador.
+// Lógica de interfaz: pestañas, búsqueda, listados, formularios e import/export.
 
-const STORAGE_KEY = 'progreso.v1';
+let searchQuery = '';
 
-function loadData() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return { entries: [] };
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed.entries)) return { entries: [] };
-    return parsed;
-  } catch (e) {
-    console.error('No se pudo leer el progreso guardado', e);
-    return { entries: [] };
-  }
-}
-
-function saveData(data) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-}
-
-let DATA = loadData();
-let seenBadgeIds = new Set(computeGamification(DATA.entries).unlocked.map((b) => b.id));
-
-function todayISO() {
-  const d = new Date();
-  const tz = d.getTimezoneOffset() * 60000;
-  return new Date(d - tz).toISOString().slice(0, 10);
-}
-
-function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-}
-
-function findDay(dayId) {
-  return ROUTINE.find((d) => d.id === dayId);
-}
-
-function findExercise(dayId, exerciseId) {
-  const day = findDay(dayId);
-  if (!day || !day.exercises) return null;
-  return day.exercises.find((ex) => ex.id === exerciseId);
-}
-
-function entriesFor(exerciseId) {
-  return DATA.entries
-    .filter((e) => e.exerciseId === exerciseId)
-    .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.createdAt - a.createdAt));
-}
-
-function addEntry(dayId, exerciseId, payload) {
-  const entry = {
-    id: uid(),
-    dayId,
-    exerciseId,
-    date: payload.date || todayISO(),
-    weight: payload.weight === '' ? null : Number(payload.weight),
-    reps: payload.reps === '' ? null : Number(payload.reps),
-    sets: payload.sets === '' ? null : Number(payload.sets),
-    note: payload.note || '',
-    createdAt: Date.now(),
-  };
-  DATA.entries.push(entry);
-  saveData(DATA);
-  return entry;
-}
-
-function deleteEntry(id) {
-  DATA.entries = DATA.entries.filter((e) => e.id !== id);
-  saveData(DATA);
-}
-
-function fmtEntry(e) {
-  const parts = [];
-  if (e.weight != null) parts.push(`${e.weight} kg`);
-  if (e.sets != null || e.reps != null) parts.push(`${e.sets ?? '?'}x${e.reps ?? '?'}`);
-  if (e.note) parts.push(`"${e.note}"`);
-  return parts.join(' · ') || 'sin datos';
-}
-
-function fmtDate(iso) {
-  const [y, m, d] = iso.split('-');
-  return `${d}/${m}/${y}`;
-}
-
-// ---------- Gamificación: barra de nivel/racha y toasts ----------
-
-function renderGamerBar() {
-  const bar = document.getElementById('gamer-bar');
-  const g = computeGamification(DATA.entries);
-  const pct = Math.round((g.xpIntoLevel / g.xpForNext) * 100);
-  bar.innerHTML = `
-    <div class="gamer-level">Nivel ${g.level}</div>
-    <div class="xp-bar"><div class="xp-fill" style="width:${pct}%"></div></div>
-    <div class="gamer-xp">${g.xpIntoLevel}/${g.xpForNext} XP</div>
-    <div class="gamer-streak">${g.streak > 0 ? `🔥 ${g.streak}` : '—'}</div>
-  `;
-  return g;
+function escapeHtml(str) {
+  return (str || '').toString().replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
 function showToast(html, variant = '') {
@@ -112,292 +19,449 @@ function showToast(html, variant = '') {
   }, 2600);
 }
 
-function celebrateAfterSave() {
-  const before = seenBadgeIds;
-  const g = renderGamerBar();
-  showToast(`✨ +${XP_PER_LOG} XP`, 'xp');
-  g.unlocked
-    .filter((b) => !before.has(b.id))
-    .forEach((b, i) => {
-      setTimeout(() => showToast(`<strong>¡Logro desbloqueado!</strong><br>${b.icon} ${b.name}`, 'badge'), 300 + i * 700);
-    });
-  seenBadgeIds = new Set(g.unlocked.map((b) => b.id));
+// ---------- Navegación ----------
+
+function currentRoute() {
+  const hash = window.location.hash.replace('#', '');
+  if (hash.startsWith('listas/')) return { tab: 'listas', listId: hash.slice('listas/'.length) };
+  if (hash === 'listas') return { tab: 'listas', listId: null };
+  return { tab: 'buscar', listId: null };
 }
 
-// ---------- Render: pestañas de navegación ----------
+function navigate(hash) {
+  window.location.hash = hash;
+  renderCurrentTab();
+}
 
-function renderTabs(activeId) {
+function renderCurrentTab() {
+  const route = currentRoute();
+  renderTabs(route.tab);
+  if (route.tab === 'listas') {
+    if (route.listId) renderListDetail(route.listId);
+    else renderListas();
+  } else {
+    renderBuscar();
+  }
+}
+
+function renderTabs(activeTab) {
   const nav = document.getElementById('tabs');
   nav.innerHTML = '';
   const tabs = [
-    ...ROUTINE.map((d) => ({ id: d.id, label: d.name, sub: d.subtitle })),
-    { id: 'progreso', label: 'Progreso', sub: '' },
+    { id: 'buscar', label: 'Buscar' },
+    { id: 'listas', label: 'Listados' },
   ];
   tabs.forEach((t) => {
     const btn = document.createElement('button');
-    btn.className = 'tab' + (t.id === activeId ? ' active' : '');
-    btn.innerHTML = `<span class="tab-main">${t.label}</span>${t.sub ? `<span class="tab-sub">${t.sub}</span>` : ''}`;
+    btn.className = 'tab' + (t.id === activeTab ? ' active' : '');
+    btn.innerHTML = `<span class="tab-main">${t.label}</span>`;
     btn.addEventListener('click', () => navigate(t.id));
     nav.appendChild(btn);
   });
 }
 
-// ---------- Render: día de entrenamiento ----------
+// ---------- Pestaña Buscar ----------
 
-function renderDay(dayId) {
-  const day = findDay(dayId);
+function renderBuscar() {
   const main = document.getElementById('main');
-  if (!day) {
-    main.innerHTML = '<p>Día no encontrado.</p>';
-    return;
-  }
-
-  if (day.type === 'rest') {
-    main.innerHTML = `
-      <div class="rest-card">
-        <h2>${day.name} — ${day.subtitle}</h2>
-        <p>${day.note}</p>
-      </div>`;
-    return;
-  }
-
   main.innerHTML = `
-    <h2 class="day-title">${day.name} — ${day.subtitle}</h2>
-    <div class="exercise-list">
-      ${day.exercises.map((ex) => renderExerciseCard(day, ex)).join('')}
-    </div>`;
-
-  day.exercises.forEach((ex) => wireExerciseCard(day, ex));
-}
-
-function renderExerciseCard(day, ex) {
-  const history = entriesFor(ex.id);
-  const last = history[0];
-  return `
-    <div class="card exercise-card" data-exercise="${ex.id}">
-      <div class="exercise-header">
-        <div>
-          <div class="exercise-name">${ex.name}</div>
-          <div class="exercise-target">Objetivo: ${ex.target}</div>
-        </div>
-        <button class="icon-btn history-toggle" data-exercise="${ex.id}" title="Ver historial">Historial</button>
-      </div>
-      <div class="last-log">${last ? `Último: ${fmtDate(last.date)} · ${fmtEntry(last)}` : 'Sin registros todavía'}</div>
-      <form class="log-form" data-exercise="${ex.id}" data-day="${day.id}">
-        <input type="date" name="date" value="${todayISO()}" required />
-        <input type="number" step="0.5" min="0" name="weight" placeholder="Peso (kg)" />
-        <input type="number" min="0" name="sets" placeholder="Series" />
-        <input type="number" min="0" name="reps" placeholder="Reps" />
-        <input type="text" name="note" placeholder="Nota (opcional)" class="note-input" />
-        <button type="submit">Guardar</button>
-      </form>
-      <div class="history-panel" data-exercise="${ex.id}" hidden></div>
-    </div>`;
-}
-
-function wireExerciseCard(day, ex) {
-  const card = document.querySelector(`.exercise-card[data-exercise="${ex.id}"]`);
-  const form = card.querySelector('.log-form');
-  form.addEventListener('submit', (evt) => {
-    evt.preventDefault();
-    const fd = new FormData(form);
-    addEntry(day.id, ex.id, {
-      date: fd.get('date'),
-      weight: fd.get('weight'),
-      sets: fd.get('sets'),
-      reps: fd.get('reps'),
-      note: fd.get('note'),
-    });
-    renderDay(day.id);
-    celebrateAfterSave();
-  });
-
-  const toggleBtn = card.querySelector('.history-toggle');
-  const panel = card.querySelector('.history-panel');
-  toggleBtn.addEventListener('click', () => {
-    const hidden = panel.hasAttribute('hidden');
-    if (hidden) {
-      renderHistoryPanel(panel, ex.id, day.id);
-      panel.removeAttribute('hidden');
-    } else {
-      panel.setAttribute('hidden', '');
-    }
-  });
-}
-
-function renderHistoryPanel(panel, exerciseId, dayId) {
-  const history = entriesFor(exerciseId);
-  if (history.length === 0) {
-    panel.innerHTML = '<p class="empty">Todavía no hay registros para este ejercicio.</p>';
-    return;
-  }
-  panel.innerHTML = `
-    <ul class="history-list">
-      ${history
-        .map(
-          (e) => `
-        <li>
-          <span class="history-date">${fmtDate(e.date)}</span>
-          <span class="history-detail">${fmtEntry(e)}</span>
-          <button class="delete-btn" data-id="${e.id}" title="Eliminar">✕</button>
-        </li>`
-        )
-        .join('')}
-    </ul>`;
-  panel.querySelectorAll('.delete-btn').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      deleteEntry(btn.dataset.id);
-      renderHistoryPanel(panel, exerciseId, dayId);
-      renderDay(dayId);
-      const g = renderGamerBar();
-      seenBadgeIds = new Set(g.unlocked.map((b) => b.id));
-    });
-  });
-}
-
-// ---------- Render: pestaña de progreso ----------
-
-function allExercises() {
-  return ROUTINE.filter((d) => d.type === 'training').flatMap((d) => d.exercises.map((ex) => ({ ...ex, dayId: d.id, dayName: d.subtitle })));
-}
-
-function renderProgreso() {
-  const main = document.getElementById('main');
-  const entries = DATA.entries;
-  const sessionDates = new Set(entries.map((e) => e.date));
-  const totalSesiones = sessionDates.size;
-  const totalRegistros = entries.length;
-
-  const exercises = allExercises();
-  const rows = exercises
-    .map((ex) => {
-      const hist = entriesFor(ex.id).slice().reverse(); // orden cronológico ascendente
-      const withWeight = hist.filter((e) => e.weight != null);
-      const first = withWeight[0];
-      const last = withWeight[withWeight.length - 1];
-      const delta = first && last ? Number((last.weight - first.weight).toFixed(2)) : null;
-      return { ex, hist, withWeight, delta, count: hist.length };
-    })
-    .filter((r) => r.count > 0)
-    .sort((a, b) => b.count - a.count);
-
-  const g = computeGamification(entries);
-
-  main.innerHTML = `
-    <h2 class="day-title">Progreso general</h2>
-    <div class="stats-row">
-      <div class="stat-card"><div class="stat-value">${totalSesiones}</div><div class="stat-label">Días entrenados</div></div>
-      <div class="stat-card"><div class="stat-value">${totalRegistros}</div><div class="stat-label">Registros totales</div></div>
-      <div class="stat-card"><div class="stat-value">${rows.length}</div><div class="stat-label">Ejercicios con historial</div></div>
+    <div class="search-bar">
+      <input type="search" id="search-input" placeholder="Buscar por nombre, cargo, teléfono, email…" />
+      <button id="new-contact-btn" class="primary-btn">+ Nuevo contacto</button>
     </div>
-    <h3 class="section-title">Logros (${g.unlocked.length}/${g.unlocked.length + g.locked.length})</h3>
-    <div class="badge-grid">
-      ${g.unlocked.map((b) => renderBadge(b, true)).join('')}
-      ${g.locked.map((b) => renderBadge(b, false)).join('')}
-    </div>
-    ${
-      rows.length === 0
-        ? '<p class="empty">Todavía no has registrado ningún entrenamiento. ¡Empieza por un día de la rutina!</p>'
-        : `<h3 class="section-title">Evolución por ejercicio</h3><div class="progress-list">${rows.map((r) => renderProgressRow(r)).join('')}</div>`
-    }
+    <div id="search-meta" class="section-title"></div>
+    <div id="results-list" class="contact-list"></div>
   `;
+  const input = document.getElementById('search-input');
+  input.value = searchQuery;
+  input.addEventListener('input', () => {
+    searchQuery = input.value;
+    renderResultsList();
+  });
+  document.getElementById('new-contact-btn').addEventListener('click', () => openContactModal(null));
+  renderResultsList();
+  input.focus();
+  input.setSelectionRange(input.value.length, input.value.length);
+}
 
-  rows.forEach((r) => {
-    const canvas = document.getElementById(`spark-${r.ex.id}`);
-    if (canvas) drawSparkline(canvas, r.withWeight.map((e) => e.weight));
+function renderResultsList() {
+  const meta = document.getElementById('search-meta');
+  const listEl = document.getElementById('results-list');
+  const matches = searchContacts(searchQuery);
+  meta.textContent =
+    DATA.contacts.length === 0
+      ? 'Todavía no hay contactos. Importa un Excel/CSV o crea uno nuevo.'
+      : `${matches.length} contacto${matches.length === 1 ? '' : 's'} de ${DATA.contacts.length}`;
+  listEl.innerHTML = matches.length === 0 ? '<p class="empty">Sin resultados.</p>' : matches.map((c) => contactCardHtml(c, 'search')).join('');
+  wireContactCards(listEl, 'search', null);
+}
+
+// ---------- Tarjetas de contacto (reutilizadas en Buscar y en Listados) ----------
+
+function contactFieldsHtml(contact) {
+  const f = contact.fields || {};
+  return DATA.fields
+    .filter((field) => field.key !== 'nombre' && field.key !== 'apellidos')
+    .map((field) => (f[field.key] ? `<div class="contact-field"><span class="field-label">${escapeHtml(field.label)}:</span> ${escapeHtml(f[field.key])}</div>` : ''))
+    .join('');
+}
+
+function contactCardHtml(c, context) {
+  const name = escapeHtml(contactDisplayName(c));
+  return `
+    <div class="card contact-card" data-id="${c.id}">
+      <div class="contact-main">
+        <div class="contact-name">${name}</div>
+        <div class="contact-fields">${contactFieldsHtml(c)}</div>
+      </div>
+      <div class="contact-actions">
+        <button class="icon-btn" data-action="edit">Editar</button>
+        ${context === 'list' ? '<button class="icon-btn" data-action="remove">Quitar de la lista</button>' : '<button class="icon-btn" data-action="addlist">Añadir a…</button>'}
+        <button class="delete-btn" data-action="delete" title="Borrar contacto">✕ Borrar</button>
+      </div>
+    </div>`;
+}
+
+function wireContactCards(container, context, listId) {
+  container.querySelectorAll('.contact-card').forEach((card) => {
+    const id = card.dataset.id;
+    card.querySelector('[data-action="edit"]').addEventListener('click', () => openContactModal(getContact(id)));
+    card.querySelector('[data-action="delete"]').addEventListener('click', () => {
+      const c = getContact(id);
+      if (confirm(`¿Borrar el contacto "${contactDisplayName(c)}"? Esta acción no se puede deshacer.`)) {
+        deleteContact(id);
+        showToast('Contacto borrado.');
+        renderCurrentTab();
+      }
+    });
+    const addBtn = card.querySelector('[data-action="addlist"]');
+    if (addBtn) addBtn.addEventListener('click', () => toggleAddToListPanel(card, id));
+    const removeBtn = card.querySelector('[data-action="remove"]');
+    if (removeBtn)
+      removeBtn.addEventListener('click', () => {
+        removeContactFromList(listId, id);
+        showToast('Quitado del listado.');
+        renderListContactsList(listId);
+      });
   });
 }
 
-function renderBadge(badge, unlocked) {
-  return `
-    <div class="badge-card ${unlocked ? 'unlocked' : 'locked'}">
-      <div class="badge-icon">${unlocked ? badge.icon : '🔒'}</div>
-      <div class="badge-name">${badge.name}</div>
-      <div class="badge-desc">${badge.desc}</div>
-    </div>`;
-}
-
-function renderProgressRow(r) {
-  const { ex, delta, count } = r;
-  const deltaLabel =
-    delta == null ? '' : delta > 0 ? `<span class="delta up">+${delta} kg</span>` : delta < 0 ? `<span class="delta down">${delta} kg</span>` : `<span class="delta flat">±0 kg</span>`;
-  return `
-    <div class="card progress-row">
-      <div class="progress-info">
-        <div class="exercise-name">${ex.name}</div>
-        <div class="exercise-target">${ex.dayName} · ${count} registro${count === 1 ? '' : 's'}</div>
-      </div>
-      <canvas id="spark-${ex.id}" class="sparkline" width="160" height="40"></canvas>
-      ${deltaLabel}
-    </div>`;
-}
-
-function drawSparkline(canvas, values) {
-  const ctx = canvas.getContext('2d');
-  const w = canvas.width;
-  const h = canvas.height;
-  ctx.clearRect(0, 0, w, h);
-  if (values.length < 2) {
-    ctx.fillStyle = 'rgba(150,150,150,0.6)';
-    ctx.font = '11px sans-serif';
-    ctx.fillText('Añade más registros para ver la tendencia', 4, h / 2 + 4);
+function toggleAddToListPanel(card, contactId) {
+  const existing = card.querySelector('.addlist-panel');
+  if (existing) {
+    existing.remove();
     return;
   }
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const pad = 4;
-  const range = max - min || 1;
-  const stepX = (w - pad * 2) / (values.length - 1);
-  ctx.beginPath();
-  values.forEach((v, i) => {
-    const x = pad + i * stepX;
-    const y = h - pad - ((v - min) / range) * (h - pad * 2);
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
+  const panel = document.createElement('div');
+  panel.className = 'addlist-panel';
+  renderAddToListPanel(panel, contactId);
+  card.appendChild(panel);
+}
+
+function renderAddToListPanel(panel, contactId) {
+  panel.innerHTML = `
+    ${
+      DATA.lists.length === 0
+        ? '<div class="empty">Todavía no hay listados.</div>'
+        : DATA.lists
+            .slice()
+            .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+            .map((l) => `<button class="addlist-option" data-list="${l.id}">${l.contactIds.includes(contactId) ? '✓ ' : ''}${escapeHtml(l.name)}</button>`)
+            .join('')
+    }
+    <div class="addlist-new">
+      <input type="text" placeholder="Nuevo listado…" class="addlist-input" />
+      <button class="addlist-create">Crear y añadir</button>
+    </div>
+  `;
+  panel.querySelectorAll('.addlist-option').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const listId = btn.dataset.list;
+      const list = DATA.lists.find((l) => l.id === listId);
+      if (list.contactIds.includes(contactId)) {
+        removeContactFromList(listId, contactId);
+        showToast(`Quitado de "${list.name}".`);
+      } else {
+        addContactToList(listId, contactId);
+        showToast(`Añadido a "${list.name}".`);
+      }
+      renderAddToListPanel(panel, contactId);
+    });
   });
-  ctx.strokeStyle = '#4fd1a5';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-  const lastX = pad + (values.length - 1) * stepX;
-  const lastY = h - pad - ((values[values.length - 1] - min) / range) * (h - pad * 2);
-  ctx.beginPath();
-  ctx.arc(lastX, lastY, 3, 0, Math.PI * 2);
-  ctx.fillStyle = '#4fd1a5';
-  ctx.fill();
+  panel.querySelector('.addlist-create').addEventListener('click', () => {
+    const input = panel.querySelector('.addlist-input');
+    const name = input.value.trim();
+    if (!name) return;
+    const list = createList(name);
+    addContactToList(list.id, contactId);
+    showToast(`Listado "${list.name}" creado y contacto añadido.`);
+    renderAddToListPanel(panel, contactId);
+  });
 }
 
-// ---------- Navegación / export / import ----------
+// ---------- Formulario de contacto (nuevo / editar) ----------
 
-function navigate(id) {
-  window.location.hash = id;
-  renderTabs(id);
-  renderGamerBar();
-  if (id === 'progreso') renderProgreso();
-  else renderDay(id);
+function contactFieldRowHtml(field, value) {
+  return `
+    <label class="field-row">
+      <span class="field-row-label">${escapeHtml(field.label)}</span>
+      <input type="text" name="${field.key}" value="${escapeHtml(value)}" />
+    </label>`;
 }
 
-function exportData() {
+function openContactModal(contact) {
+  const overlay = document.getElementById('modal-overlay');
+  const isEdit = !!contact;
+  const values = contact ? contact.fields : {};
+  overlay.innerHTML = `
+    <div class="modal card">
+      <h3>${isEdit ? 'Editar contacto' : 'Nuevo contacto'}</h3>
+      <form id="contact-form" class="contact-form">
+        <div id="contact-fields-wrap">
+          ${DATA.fields.map((field) => contactFieldRowHtml(field, values[field.key] || '')).join('')}
+        </div>
+        <button type="button" id="add-field-btn" class="icon-btn">+ Añadir campo</button>
+        <div class="modal-actions">
+          <button type="button" id="cancel-btn" class="icon-btn">Cancelar</button>
+          <button type="submit" class="primary-btn">Guardar</button>
+        </div>
+      </form>
+    </div>`;
+  overlay.hidden = false;
+
+  document.getElementById('add-field-btn').addEventListener('click', () => {
+    const label = prompt('Nombre del nuevo campo (ej. "Fax", "Horario"):');
+    if (!label || !label.trim()) return;
+    const field = ensureField(label);
+    document.getElementById('contact-fields-wrap').insertAdjacentHTML('beforeend', contactFieldRowHtml(field, ''));
+  });
+
+  document.getElementById('cancel-btn').addEventListener('click', closeModal);
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) closeModal();
+  });
+
+  document.getElementById('contact-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const fieldsObj = {};
+    DATA.fields.forEach((field) => {
+      const v = (fd.get(field.key) || '').toString().trim();
+      if (v) fieldsObj[field.key] = v;
+    });
+    if (isEdit) {
+      updateContact(contact.id, fieldsObj);
+      showToast('Contacto actualizado.');
+    } else {
+      createContact(fieldsObj);
+      showToast('Contacto creado.');
+    }
+    closeModal();
+    renderCurrentTab();
+  });
+}
+
+function closeModal() {
+  const overlay = document.getElementById('modal-overlay');
+  overlay.hidden = true;
+  overlay.innerHTML = '';
+}
+
+// ---------- Pestaña Listados ----------
+
+function renderListas() {
+  const main = document.getElementById('main');
+  main.innerHTML = `
+    <div class="search-bar">
+      <button id="new-list-btn" class="primary-btn">+ Nuevo listado</button>
+    </div>
+    <div id="lists-grid" class="lists-grid"></div>
+  `;
+  document.getElementById('new-list-btn').addEventListener('click', () => {
+    const name = prompt('Nombre del nuevo listado (ej. "Navidad 2026", "Colegios"):');
+    if (!name || !name.trim()) return;
+    const list = createList(name);
+    navigate(`listas/${list.id}`);
+  });
+  renderListsGrid();
+}
+
+function renderListsGrid() {
+  const grid = document.getElementById('lists-grid');
+  if (DATA.lists.length === 0) {
+    grid.innerHTML = '<p class="empty">Todavía no has creado ningún listado. Crea uno para agrupar contactos y reutilizarlo año tras año.</p>';
+    return;
+  }
+  grid.innerHTML = DATA.lists
+    .slice()
+    .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+    .map(
+      (l) => `
+      <div class="card list-card" data-id="${l.id}">
+        <div class="list-card-name">${escapeHtml(l.name)}</div>
+        <div class="list-card-count">${l.contactIds.length} contacto${l.contactIds.length === 1 ? '' : 's'}</div>
+        <div class="list-card-actions">
+          <button class="icon-btn" data-action="ver">Ver</button>
+          <button class="icon-btn" data-action="renombrar">Renombrar</button>
+          <button class="delete-btn" data-action="borrar">✕ Borrar</button>
+        </div>
+      </div>`
+    )
+    .join('');
+  grid.querySelectorAll('.list-card').forEach((card) => {
+    const id = card.dataset.id;
+    card.querySelector('[data-action="ver"]').addEventListener('click', () => navigate(`listas/${id}`));
+    card.querySelector('[data-action="renombrar"]').addEventListener('click', () => {
+      const list = DATA.lists.find((l) => l.id === id);
+      const name = prompt('Nuevo nombre del listado:', list.name);
+      if (!name || !name.trim()) return;
+      renameList(id, name);
+      renderListsGrid();
+    });
+    card.querySelector('[data-action="borrar"]').addEventListener('click', () => {
+      const list = DATA.lists.find((l) => l.id === id);
+      if (confirm(`¿Borrar el listado "${list.name}"? Los contactos no se eliminarán del directorio.`)) {
+        deleteList(id);
+        renderListsGrid();
+      }
+    });
+  });
+}
+
+function renderListDetail(listId) {
+  const list = DATA.lists.find((l) => l.id === listId);
+  const main = document.getElementById('main');
+  if (!list) {
+    main.innerHTML = '<p class="empty">Listado no encontrado.</p>';
+    return;
+  }
+  main.innerHTML = `
+    <div class="list-detail-header">
+      <button id="back-btn" class="icon-btn">← Listados</button>
+      <h2 class="day-title">${escapeHtml(list.name)}</h2>
+    </div>
+    <div class="search-bar">
+      <button id="add-contacts-btn" class="primary-btn">+ Añadir contactos</button>
+    </div>
+    <div id="list-contacts" class="contact-list"></div>
+  `;
+  document.getElementById('back-btn').addEventListener('click', () => navigate('listas'));
+  document.getElementById('add-contacts-btn').addEventListener('click', () => openAddToListModal(listId));
+  renderListContactsList(listId);
+}
+
+function renderListContactsList(listId) {
+  const el = document.getElementById('list-contacts');
+  const contacts = listContacts(listId);
+  el.innerHTML =
+    contacts.length === 0 ? '<p class="empty">Este listado todavía no tiene contactos. Usa "+ Añadir contactos".</p>' : contacts.map((c) => contactCardHtml(c, 'list')).join('');
+  wireContactCards(el, 'list', listId);
+}
+
+function openAddToListModal(listId) {
+  const overlay = document.getElementById('modal-overlay');
+  overlay.innerHTML = `
+    <div class="modal card">
+      <h3>Añadir contactos al listado</h3>
+      <input type="search" id="add-search-input" placeholder="Buscar contacto…" class="modal-search" />
+      <div id="add-search-meta" class="section-title"></div>
+      <div id="add-search-results" class="contact-list compact"></div>
+      <div class="modal-actions">
+        <button type="button" id="close-add-modal" class="primary-btn">Hecho</button>
+      </div>
+    </div>`;
+  overlay.hidden = false;
+  const RESULT_LIMIT = 200;
+
+  function renderResults(query) {
+    const all = searchContacts(query);
+    const matches = all.slice(0, RESULT_LIMIT);
+    const meta = document.getElementById('add-search-meta');
+    meta.textContent = all.length > RESULT_LIMIT ? `Mostrando ${RESULT_LIMIT} de ${all.length} resultados. Afina la búsqueda para ver más.` : `${all.length} resultado${all.length === 1 ? '' : 's'}`;
+    const resultsEl = document.getElementById('add-search-results');
+    const list = DATA.lists.find((l) => l.id === listId);
+    resultsEl.innerHTML = matches.length
+      ? matches
+          .map(
+            (c) => `
+        <div class="card contact-card compact" data-id="${c.id}">
+          <div class="contact-name">${escapeHtml(contactDisplayName(c))}</div>
+          <button class="icon-btn toggle-add-btn" data-id="${c.id}">${list.contactIds.includes(c.id) ? '✓ En el listado' : 'Añadir'}</button>
+        </div>`
+          )
+          .join('')
+      : '<p class="empty">Sin resultados.</p>';
+    resultsEl.querySelectorAll('.toggle-add-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const cid = btn.dataset.id;
+        if (list.contactIds.includes(cid)) removeContactFromList(listId, cid);
+        else addContactToList(listId, cid);
+        renderResults(document.getElementById('add-search-input').value);
+      });
+    });
+  }
+
+  renderResults('');
+  document.getElementById('add-search-input').addEventListener('input', (e) => renderResults(e.target.value));
+  document.getElementById('close-add-modal').addEventListener('click', () => {
+    closeModal();
+    renderCurrentTab();
+  });
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      closeModal();
+      renderCurrentTab();
+    }
+  });
+}
+
+// ---------- Importar Excel/CSV ----------
+
+function handleExcelImport(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = new Uint8Array(reader.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
+      if (rows.length < 2) throw new Error('el archivo no tiene filas de datos');
+      const [header, ...dataRows] = rows;
+      const count = importRows(header, dataRows);
+      renderCurrentTab();
+      showToast(`✅ Se importaron ${count} contactos.`);
+    } catch (e) {
+      alert('No se pudo importar el archivo: ' + e.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// ---------- Backup completo (JSON) ----------
+
+function exportBackup() {
   const blob = new Blob([JSON.stringify(DATA, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `progreso-${todayISO()}.json`;
+  a.download = `contactos-backup-${new Date().toISOString().slice(0, 10)}.json`;
   a.click();
   URL.revokeObjectURL(url);
 }
 
-function importData(file) {
+function importBackup(file) {
   const reader = new FileReader();
   reader.onload = () => {
     try {
       const parsed = JSON.parse(reader.result);
-      if (!Array.isArray(parsed.entries)) throw new Error('formato inválido');
+      if (!Array.isArray(parsed.contacts)) throw new Error('formato inválido');
+      if (!Array.isArray(parsed.lists)) parsed.lists = [];
+      if (!Array.isArray(parsed.fields) || parsed.fields.length === 0) parsed.fields = DEFAULT_FIELDS.slice();
       DATA = parsed;
       saveData(DATA);
-      seenBadgeIds = new Set(computeGamification(DATA.entries).unlocked.map((b) => b.id));
-      const current = window.location.hash.replace('#', '') || ROUTINE[0].id;
-      navigate(current);
-      alert('Datos importados correctamente.');
+      renderCurrentTab();
+      showToast('✅ Copia de seguridad restaurada.');
     } catch (e) {
       alert('No se pudo importar el archivo: ' + e.message);
     }
@@ -405,17 +469,22 @@ function importData(file) {
   reader.readAsText(file);
 }
 
+// ---------- Inicio ----------
+
 function init() {
-  renderTabs(null);
-  document.getElementById('export-btn').addEventListener('click', exportData);
+  document.getElementById('export-btn').addEventListener('click', exportBackup);
   document.getElementById('import-input').addEventListener('change', (evt) => {
     const file = evt.target.files[0];
-    if (file) importData(file);
+    if (file) importBackup(file);
     evt.target.value = '';
   });
-
-  const initial = window.location.hash.replace('#', '') || ROUTINE[0].id;
-  navigate(initial);
+  document.getElementById('excel-input').addEventListener('change', (evt) => {
+    const file = evt.target.files[0];
+    if (file) handleExcelImport(file);
+    evt.target.value = '';
+  });
+  window.addEventListener('hashchange', renderCurrentTab);
+  renderCurrentTab();
 }
 
 window.addEventListener('DOMContentLoaded', init);
