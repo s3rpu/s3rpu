@@ -626,6 +626,23 @@ function openImportReviewModal(pendingRows) {
   render();
 }
 
+// ---------- Exportar a Excel ----------
+// Vuelca todos los contactos a un .xlsx con una columna por cada campo
+// conocido, para poder tener siempre una copia del directorio fuera de la
+// app (por si se pierde el programa, el ordenador, etc.).
+
+function exportExcel() {
+  const headers = DATA.fields.map((f) => f.label);
+  const rows = DATA.contacts
+    .slice()
+    .sort((a, b) => contactDisplayName(a).localeCompare(contactDisplayName(b), 'es'))
+    .map((c) => DATA.fields.map((f) => (c.fields && c.fields[f.key]) || ''));
+  const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Contactos');
+  XLSX.writeFile(workbook, `contactos-${new Date().toISOString().slice(0, 10)}.xlsx`);
+}
+
 // ---------- Backup completo (JSON) ----------
 
 function exportBackup() {
@@ -660,6 +677,7 @@ function importBackup(file) {
 // ---------- Inicio ----------
 
 function init() {
+  document.getElementById('export-excel-btn').addEventListener('click', exportExcel);
   document.getElementById('export-btn').addEventListener('click', exportBackup);
   document.getElementById('import-input').addEventListener('change', (evt) => {
     const file = evt.target.files[0];
