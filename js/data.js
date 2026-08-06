@@ -120,6 +120,9 @@ function getContact(id) {
 }
 
 // ---------- Detección de posibles duplicados ----------
+// Se indexa por nombre completo, teléfono/móvil y email normalizados para
+// poder comprobar cada contacto en tiempo prácticamente constante en vez de
+// recorrer toda la lista cada vez (importa mucho al importar cientos de filas).
 
 function normalizePhone(v) {
   return (v || '').toString().replace(/[^0-9+]/g, '');
@@ -129,31 +132,61 @@ function normalizeEmail(v) {
   return (v || '').toString().trim().toLowerCase();
 }
 
+function matchKeysFor(fields) {
+  const f = fields || {};
+  return {
+    nameKey: normalizeText([f.nombre, f.apellidos].filter(Boolean).join(' ').trim()),
+    phoneKeys: [f.telefono, f.movil].map(normalizePhone).filter((v) => v.length >= 6),
+    emailKey: normalizeEmail(f.email),
+  };
+}
+
+function indexAddContact(index, contact) {
+  const { nameKey, phoneKeys, emailKey } = matchKeysFor(contact.fields);
+  if (nameKey) {
+    if (!index.byName.has(nameKey)) index.byName.set(nameKey, []);
+    index.byName.get(nameKey).push(contact);
+  }
+  phoneKeys.forEach((p) => {
+    if (!index.byPhone.has(p)) index.byPhone.set(p, []);
+    index.byPhone.get(p).push(contact);
+  });
+  if (emailKey) {
+    if (!index.byEmail.has(emailKey)) index.byEmail.set(emailKey, []);
+    index.byEmail.get(emailKey).push(contact);
+  }
+}
+
+function buildContactIndex(excludeIds) {
+  const excl = excludeIds ? new Set(excludeIds) : null;
+  const index = { byName: new Map(), byPhone: new Map(), byEmail: new Map() };
+  DATA.contacts.forEach((c) => {
+    if (excl && excl.has(c.id)) return;
+    indexAddContact(index, c);
+  });
+  return index;
+}
+
+function findDuplicatesIndexed(fieldsObj, index) {
+  const { nameKey, phoneKeys, emailKey } = matchKeysFor(fieldsObj);
+  const found = new Map(); // contact.id -> { contact, reasons: Set }
+  const add = (contact, reason) => {
+    if (!found.has(contact.id)) found.set(contact.id, { contact, reasons: new Set() });
+    found.get(contact.id).reasons.add(reason);
+  };
+  if (nameKey && index.byName.has(nameKey)) index.byName.get(nameKey).forEach((c) => add(c, 'Nombre'));
+  phoneKeys.forEach((p) => {
+    if (index.byPhone.has(p)) index.byPhone.get(p).forEach((c) => add(c, 'Teléfono'));
+  });
+  if (emailKey && index.byEmail.has(emailKey)) index.byEmail.get(emailKey).forEach((c) => add(c, 'Email'));
+  return Array.from(found.values()).map((m) => ({ contact: m.contact, reasons: Array.from(m.reasons) }));
+}
+
 // Compara nombre completo, teléfono/móvil y email contra los contactos ya
 // guardados. excludeId se usa al editar, para no comparar un contacto consigo mismo.
 function findDuplicates(fieldsObj, excludeId) {
-  const nameKey = normalizeText([fieldsObj.nombre, fieldsObj.apellidos].filter(Boolean).join(' ').trim());
-  const phoneKeys = [fieldsObj.telefono, fieldsObj.movil].map(normalizePhone).filter((v) => v.length >= 6);
-  const emailKey = normalizeEmail(fieldsObj.email);
-
-  const matches = [];
-  DATA.contacts.forEach((c) => {
-    if (c.id === excludeId) return;
-    const f = c.fields || {};
-    const reasons = [];
-
-    const cName = normalizeText([f.nombre, f.apellidos].filter(Boolean).join(' ').trim());
-    if (nameKey && cName && cName === nameKey) reasons.push('Nombre');
-
-    const cPhones = [f.telefono, f.movil].map(normalizePhone).filter((v) => v.length >= 6);
-    if (phoneKeys.some((p) => cPhones.includes(p))) reasons.push('Teléfono');
-
-    const cEmail = normalizeEmail(f.email);
-    if (emailKey && cEmail && cEmail === emailKey) reasons.push('Email');
-
-    if (reasons.length > 0) matches.push({ contact: c, reasons });
-  });
-  return matches;
+  const index = buildContactIndex(excludeId ? [excludeId] : null);
+  return findDuplicatesIndexed(fieldsObj, index);
 }
 
 // ---------- Listados personalizados ----------
@@ -203,11 +236,13 @@ function listContacts(listId) {
 
 // ---------- Importación masiva desde Excel/CSV ----------
 // La primera fila se trata como cabecera; cada columna se convierte en un
-// campo (si no existe ya se crea). El resto de filas se añaden como contactos.
+// campo (si no existe ya se crea). Solo se parsean las filas aquí: la
+// decisión de guardarlas (y la comprobación de duplicados) la hace quien
+// llama a esta función, para poder revisar antes de escribir en DATA.
 
-function importRows(headerRow, dataRows) {
+function prepareImportRows(headerRow, dataRows) {
   const fieldKeys = headerRow.map((h) => ensureField((h || '').toString()).key);
-  let count = 0;
+  const parsedRows = [];
   dataRows.forEach((row) => {
     const fieldsObj = {};
     let hasValue = false;
@@ -218,11 +253,7 @@ function importRows(headerRow, dataRows) {
         hasValue = true;
       }
     });
-    if (hasValue) {
-      DATA.contacts.push({ id: uid(), fields: fieldsObj });
-      count++;
-    }
+    if (hasValue) parsedRows.push(fieldsObj);
   });
-  saveData(DATA);
-  return count;
+  return parsedRows;
 }

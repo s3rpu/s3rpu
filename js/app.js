@@ -483,14 +483,147 @@ function handleExcelImport(file) {
       const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
       if (rows.length < 2) throw new Error('el archivo no tiene filas de datos');
       const [header, ...dataRows] = rows;
-      const count = importRows(header, dataRows);
-      renderCurrentTab();
-      showToast(`✅ Se importaron ${count} contactos.`);
+      runImport(header, dataRows);
     } catch (e) {
       alert('No se pudo importar el archivo: ' + e.message);
     }
   };
   reader.readAsArrayBuffer(file);
+}
+
+// Las filas sin coincidencias se importan directamente; las que coinciden en
+// nombre, teléfono o email con un contacto ya existente (o con otra fila ya
+// importada del mismo archivo) se dejan para revisión manual en vez de
+// crearse a ciegas. El índice se construye una vez y se va actualizando según
+// se crean contactos, así cada fila se comprueba en tiempo prácticamente
+// constante en lugar de recorrer toda la lista por cada una (importa con
+// archivos de cientos de filas).
+function runImport(headerRow, dataRows) {
+  const parsedRows = prepareImportRows(headerRow, dataRows);
+  const index = buildContactIndex();
+  let createdCount = 0;
+  const pending = [];
+
+  parsedRows.forEach((fieldsObj) => {
+    const matches = findDuplicatesIndexed(fieldsObj, index);
+    if (matches.length === 0) {
+      const contact = createContact(fieldsObj);
+      indexAddContact(index, contact);
+      createdCount++;
+    } else {
+      pending.push({ fieldsObj, matches });
+    }
+  });
+
+  renderCurrentTab();
+  if (pending.length === 0) {
+    showToast(`✅ Se importaron ${createdCount} contactos nuevos.`);
+  } else {
+    showToast(`✅ ${createdCount} contactos importados. ⚠️ ${pending.length} parecen duplicados, revísalos.`);
+    openImportReviewModal(pending);
+  }
+}
+
+function openImportReviewModal(pendingRows) {
+  const overlay = document.getElementById('modal-overlay');
+  const rows = pendingRows.map((r, i) => ({ ...r, _id: `imp-${i}` }));
+
+  function importReviewRowHtml(r) {
+    const rowName = contactDisplayName({ fields: r.fieldsObj });
+    return `
+      <div class="card dup-item" data-rowid="${r._id}">
+        <div class="contact-name">Del archivo: ${escapeHtml(rowName)}</div>
+        <div class="contact-fields">${contactFieldsHtml({ fields: r.fieldsObj })}</div>
+        <div class="dup-matches">
+          ${r.matches
+            .map(
+              (m) => `
+            <div class="dup-match-option">
+              <span class="dup-reason">Coincide con "${escapeHtml(contactDisplayName(m.contact))}" en: ${m.reasons.join(', ')}</span>
+              <button type="button" class="icon-btn dup-merge-btn" data-target="${m.contact.id}">Unificar con este</button>
+            </div>`
+            )
+            .join('')}
+        </div>
+        <div class="dup-row-actions">
+          <button type="button" class="icon-btn row-import-btn">Importar como nuevo</button>
+          <button type="button" class="delete-btn row-skip-btn">Omitir esta fila</button>
+        </div>
+      </div>`;
+  }
+
+  function render() {
+    overlay.innerHTML = `
+      <div class="modal card modal-wide">
+        <h3>⚠️ Revisión de posibles duplicados</h3>
+        <p class="dup-intro">${rows.length} fila${rows.length === 1 ? '' : 's'} del archivo coinciden con contactos ya existentes o repetidos dentro del propio archivo. Decide qué hacer con cada una.</p>
+        <div class="modal-actions modal-actions-start">
+          <button type="button" id="import-all-rest" class="icon-btn">Importar todas como nuevas</button>
+          <button type="button" id="skip-all-rest" class="icon-btn">Omitir todas</button>
+        </div>
+        <div class="dup-list dup-list-tall" id="import-review-list">${rows.map((r) => importReviewRowHtml(r)).join('')}</div>
+        <div class="modal-actions">
+          <button type="button" id="close-review-btn" class="primary-btn">Cerrar</button>
+        </div>
+      </div>`;
+    overlay.hidden = false;
+    wire();
+  }
+
+  function removeRow(id) {
+    const idx = rows.findIndex((r) => r._id === id);
+    if (idx !== -1) rows.splice(idx, 1);
+    if (rows.length === 0) {
+      closeModal();
+      renderCurrentTab();
+      showToast('Revisión de duplicados completada.');
+    } else {
+      render();
+    }
+  }
+
+  function wire() {
+    document.getElementById('close-review-btn').addEventListener('click', () => {
+      closeModal();
+      renderCurrentTab();
+    });
+    document.getElementById('import-all-rest').addEventListener('click', () => {
+      const n = rows.length;
+      rows.forEach((r) => createContact(r.fieldsObj));
+      rows.length = 0;
+      closeModal();
+      renderCurrentTab();
+      showToast(`Se importaron ${n} contactos adicionales como nuevos.`);
+    });
+    document.getElementById('skip-all-rest').addEventListener('click', () => {
+      const n = rows.length;
+      rows.length = 0;
+      closeModal();
+      renderCurrentTab();
+      showToast(`Se omitieron ${n} filas.`);
+    });
+    overlay.querySelectorAll('.dup-item').forEach((card) => {
+      const rowId = card.dataset.rowid;
+      const row = rows.find((r) => r._id === rowId);
+      card.querySelectorAll('.dup-merge-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const target = getContact(btn.dataset.target);
+          const merged = { ...target.fields, ...row.fieldsObj };
+          updateContact(target.id, merged);
+          showToast(`Unificado con "${contactDisplayName(target)}".`);
+          removeRow(rowId);
+        });
+      });
+      card.querySelector('.row-import-btn').addEventListener('click', () => {
+        createContact(row.fieldsObj);
+        showToast('Importado como nuevo contacto.');
+        removeRow(rowId);
+      });
+      card.querySelector('.row-skip-btn').addEventListener('click', () => removeRow(rowId));
+    });
+  }
+
+  render();
 }
 
 // ---------- Backup completo (JSON) ----------

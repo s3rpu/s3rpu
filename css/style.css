@@ -461,6 +461,44 @@ body {
   margin-bottom: 10px;
 }
 
+.modal-wide {
+  max-width: 640px;
+}
+
+.dup-list-tall {
+  max-height: 420px;
+}
+
+.modal-actions-start {
+  justify-content: flex-start;
+  margin-bottom: 4px;
+}
+
+.dup-matches {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+}
+
+.dup-match-option {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+
+.dup-row-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 @media (max-width: 480px) {
   .contact-actions {
     width: 100%;
