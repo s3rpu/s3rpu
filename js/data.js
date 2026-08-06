@@ -119,6 +119,43 @@ function getContact(id) {
   return DATA.contacts.find((c) => c.id === id) || null;
 }
 
+// ---------- Detección de posibles duplicados ----------
+
+function normalizePhone(v) {
+  return (v || '').toString().replace(/[^0-9+]/g, '');
+}
+
+function normalizeEmail(v) {
+  return (v || '').toString().trim().toLowerCase();
+}
+
+// Compara nombre completo, teléfono/móvil y email contra los contactos ya
+// guardados. excludeId se usa al editar, para no comparar un contacto consigo mismo.
+function findDuplicates(fieldsObj, excludeId) {
+  const nameKey = normalizeText([fieldsObj.nombre, fieldsObj.apellidos].filter(Boolean).join(' ').trim());
+  const phoneKeys = [fieldsObj.telefono, fieldsObj.movil].map(normalizePhone).filter((v) => v.length >= 6);
+  const emailKey = normalizeEmail(fieldsObj.email);
+
+  const matches = [];
+  DATA.contacts.forEach((c) => {
+    if (c.id === excludeId) return;
+    const f = c.fields || {};
+    const reasons = [];
+
+    const cName = normalizeText([f.nombre, f.apellidos].filter(Boolean).join(' ').trim());
+    if (nameKey && cName && cName === nameKey) reasons.push('Nombre');
+
+    const cPhones = [f.telefono, f.movil].map(normalizePhone).filter((v) => v.length >= 6);
+    if (phoneKeys.some((p) => cPhones.includes(p))) reasons.push('Teléfono');
+
+    const cEmail = normalizeEmail(f.email);
+    if (emailKey && cEmail && cEmail === emailKey) reasons.push('Email');
+
+    if (reasons.length > 0) matches.push({ contact: c, reasons });
+  });
+  return matches;
+}
+
 // ---------- Listados personalizados ----------
 
 function createList(name) {

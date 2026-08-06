@@ -209,10 +209,10 @@ function contactFieldRowHtml(field, value) {
     </label>`;
 }
 
-function openContactModal(contact) {
+function openContactModal(contact, prefillValues) {
   const overlay = document.getElementById('modal-overlay');
   const isEdit = !!contact;
-  const values = contact ? contact.fields : {};
+  const values = prefillValues || (contact ? contact.fields : {});
   overlay.innerHTML = `
     <div class="modal card">
       <h3>${isEdit ? 'Editar contacto' : 'Nuevo contacto'}</h3>
@@ -249,16 +249,71 @@ function openContactModal(contact) {
       const v = (fd.get(field.key) || '').toString().trim();
       if (v) fieldsObj[field.key] = v;
     });
-    if (isEdit) {
-      updateContact(contact.id, fieldsObj);
-      showToast('Contacto actualizado.');
+    const excludeId = isEdit ? contact.id : null;
+    const duplicates = findDuplicates(fieldsObj, excludeId);
+    if (duplicates.length > 0) {
+      openDuplicateWarningModal(fieldsObj, duplicates, isEdit ? contact : null);
     } else {
-      createContact(fieldsObj);
-      showToast('Contacto creado.');
+      saveContactFields(fieldsObj, isEdit ? contact : null);
     }
-    closeModal();
-    renderCurrentTab();
   });
+}
+
+function saveContactFields(fieldsObj, existingContact) {
+  if (existingContact) {
+    updateContact(existingContact.id, fieldsObj);
+    showToast('Contacto actualizado.');
+  } else {
+    createContact(fieldsObj);
+    showToast('Contacto creado.');
+  }
+  closeModal();
+  renderCurrentTab();
+}
+
+// ---------- Aviso de posible contacto duplicado ----------
+
+function openDuplicateWarningModal(fieldsObj, duplicates, existingContact) {
+  const overlay = document.getElementById('modal-overlay');
+  overlay.innerHTML = `
+    <div class="modal card">
+      <h3>⚠️ Puede que este contacto ya exista</h3>
+      <p class="dup-intro">Los datos introducidos coinciden con ${duplicates.length === 1 ? 'un contacto que ya está' : 'contactos que ya están'} en la base de datos:</p>
+      <div class="dup-list">
+        ${duplicates
+          .map(
+            (d) => `
+          <div class="card dup-item">
+            <div class="contact-name">${escapeHtml(contactDisplayName(d.contact))}</div>
+            <div class="dup-reason">Coincide en: ${d.reasons.join(', ')}</div>
+            <div class="contact-fields">${contactFieldsHtml(d.contact)}</div>
+            <button type="button" class="primary-btn dup-merge-btn" data-id="${d.contact.id}">Unificar con este contacto</button>
+          </div>`
+          )
+          .join('')}
+      </div>
+      <div class="modal-actions">
+        <button type="button" id="dup-cancel-btn" class="icon-btn">Volver a editar</button>
+        <button type="button" id="dup-create-anyway-btn" class="icon-btn">Crear de todas formas</button>
+      </div>
+    </div>`;
+  overlay.hidden = false;
+
+  overlay.querySelectorAll('.dup-merge-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.dataset.id;
+      const target = getContact(targetId);
+      const merged = { ...target.fields, ...fieldsObj };
+      updateContact(targetId, merged);
+      if (existingContact && existingContact.id !== targetId) deleteContact(existingContact.id);
+      showToast(`Contacto unificado con "${contactDisplayName(target)}".`);
+      closeModal();
+      renderCurrentTab();
+    });
+  });
+
+  document.getElementById('dup-cancel-btn').addEventListener('click', () => openContactModal(existingContact, fieldsObj));
+  document.getElementById('dup-create-anyway-btn').addEventListener('click', () => saveContactFields(fieldsObj, existingContact));
 }
 
 function closeModal() {
