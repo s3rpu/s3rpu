@@ -1,4 +1,4 @@
-# Directorio de Contactos
+# Administrador de Contactos
 
 App web para gestionar la base de datos de contactos del ayuntamiento: buscar, editar, borrar y organizar contactos en listados personalizados reutilizables.
 
