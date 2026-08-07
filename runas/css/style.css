@@ -1,0 +1,235 @@
+/* Estilos específicos de la app de runas. Reutiliza las variables de color
+   definidas en css/style.css (raíz del repo). */
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.text-input {
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 8px 10px;
+  font-size: 0.9rem;
+}
+
+.text-dim-small {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+}
+
+.icon-btn.primary {
+  background: var(--accent);
+  color: #08211a;
+  border-color: var(--accent);
+  font-weight: 600;
+}
+
+.icon-btn.primary:hover {
+  background: #63e0b7;
+}
+
+.back-btn {
+  margin-bottom: 12px;
+}
+
+.monster-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 10px;
+}
+
+.monster-card {
+  cursor: pointer;
+  margin-bottom: 0;
+  transition: border-color 0.15s ease;
+}
+
+.monster-card:hover {
+  border-color: var(--accent);
+}
+
+.monster-card-name {
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 4px;
+}
+
+.monster-card-meta {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+}
+
+.monster-detail-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+
+.slot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.slot-grid.compact {
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+}
+
+.rune-slot {
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  font-size: 0.8rem;
+}
+
+.rune-slot.small {
+  padding: 8px;
+  font-size: 0.72rem;
+}
+
+.rune-slot.same {
+  border-color: var(--border);
+}
+
+.rune-slot.new {
+  border-color: var(--accent);
+}
+
+.rune-slot.empty-slot {
+  opacity: 0.6;
+}
+
+.rune-slot.list-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr 1fr;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.rune-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.rune-slot-num {
+  color: var(--text-dim);
+  font-size: 0.72rem;
+  margin-bottom: 4px;
+}
+
+.rune-main {
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.rune-subs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+
+.sub-chip {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 0.7rem;
+  white-space: nowrap;
+}
+
+.rune-eff {
+  color: var(--accent);
+  font-size: 0.72rem;
+}
+
+.badge-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.set-badge {
+  background: var(--bg-card-alt);
+  border: 1px solid var(--accent-dim);
+  color: var(--accent);
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 0.75rem;
+}
+
+.set-badge.special {
+  border-color: #fad165;
+  color: #fad165;
+}
+
+.totals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+}
+
+.total-chip {
+  background: var(--bg-card-alt);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.total-label {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+}
+
+.total-value {
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.optimizer-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.optimizer-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+}
+
+.build-card {
+  margin-top: 12px;
+}
+
+.build-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+@media (max-width: 480px) {
+  .rune-slot.list-row {
+    grid-template-columns: 1fr;
+  }
+}

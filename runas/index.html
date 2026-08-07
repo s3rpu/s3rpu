@@ -3,29 +3,29 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
-    <title>Mi Progreso — Rutina</title>
+    <title>Runas — Summoners War</title>
     <meta name="theme-color" content="#10161c" />
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💪</text></svg>" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>💠</text></svg>" />
+    <link rel="stylesheet" href="../css/style.css" />
     <link rel="stylesheet" href="css/style.css" />
   </head>
   <body>
     <header class="app-header">
-      <h1>💪 Mi Progreso</h1>
+      <h1>💠 Runas — SW</h1>
       <div class="header-actions">
-        <a class="icon-btn" href="runas/index.html" title="Optimizador de runas de Summoners War">💠 Runas SW</a>
+        <a class="icon-btn" href="../index.html" title="Volver al inicio">Inicio</a>
         <button id="export-btn" class="icon-btn" title="Exportar copia de seguridad">Exportar</button>
-        <label class="icon-btn file-label" title="Importar copia de seguridad">
+        <label class="icon-btn file-label" title="Importar JSON de SWEX">
           Importar
           <input type="file" id="import-input" accept="application/json" hidden />
         </label>
       </div>
     </header>
-    <div id="gamer-bar" class="gamer-bar"></div>
     <nav id="tabs" class="tabs"></nav>
     <main id="main" class="main"></main>
-    <div id="toast-stack" class="toast-stack"></div>
-    <script src="js/routine.js"></script>
-    <script src="js/gamification.js"></script>
+    <script src="js/data.js"></script>
+    <script src="js/import.js"></script>
+    <script src="js/optimizer.js"></script>
     <script src="js/app.js"></script>
   </body>
 </html>
