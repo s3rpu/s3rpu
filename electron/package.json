@@ -17,7 +17,9 @@
     "productName": "Administrador de Contactos",
     "publish": null,
     "files": ["main.js", "app/**/*"],
+    "icon": "build/icon.ico",
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         { "target": "nsis", "arch": ["x64"] },
         { "target": "portable", "arch": ["x64"] }

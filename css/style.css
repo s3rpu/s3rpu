@@ -98,7 +98,18 @@ body {
 .header-actions {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
+}
+
+/* Separador clásico de barra de herramientas, para agrupar botones
+   relacionados (como en las barras de Office/IE de la época). */
+.toolbar-sep {
+  width: 1px;
+  align-self: stretch;
+  margin: 2px 2px;
+  background: rgba(255, 255, 255, 0.18);
+  border-right: 1px solid rgba(0, 0, 0, 0.25);
 }
 
 .icon-btn {
