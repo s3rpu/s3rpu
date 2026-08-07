@@ -325,6 +325,28 @@ body {
   position: relative;
 }
 
+.contact-select {
+  display: flex;
+  align-items: center;
+  padding-top: 2px;
+}
+
+.contact-select input {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.selection-toolbar {
+  align-items: center;
+  margin-top: -6px;
+}
+
+#selection-count {
+  margin: 0;
+  align-self: center;
+}
+
 /* Franja alterna, como en un listado clásico de Windows (ListView). */
 .contact-list .contact-card:nth-child(even) {
   background: var(--stripe-bg);

@@ -206,6 +206,22 @@ function cleanPhoneFields(fieldsObj) {
   return result;
 }
 
+// Aplica cleanPhoneFields a todos los contactos ya guardados (para
+// contactos importados antes de que existiera esta limpieza). Devuelve
+// cuántos contactos cambiaron de verdad.
+function cleanAllContactsPhones() {
+  let changed = 0;
+  DATA.contacts.forEach((c) => {
+    const cleaned = cleanPhoneFields(c.fields);
+    if (JSON.stringify(cleaned) !== JSON.stringify(c.fields)) {
+      c.fields = cleaned;
+      changed++;
+    }
+  });
+  if (changed > 0) saveData(DATA);
+  return changed;
+}
+
 function matchKeysFor(fields) {
   const f = fields || {};
   const nameKey = normalizeText([f.nombre, f.apellidos].filter(Boolean).join(' ').trim());

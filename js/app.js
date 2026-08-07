@@ -85,10 +85,31 @@ function renderTodos() {
   const main = document.getElementById('main');
   const contacts = DATA.contacts.slice().sort((a, b) => contactDisplayName(a).localeCompare(contactDisplayName(b), 'es'));
   main.innerHTML = `
-    ${contacts.length > 0 ? '<div class="search-bar"><button id="delete-all-btn" class="delete-btn">✕ Borrar todo</button></div>' : ''}
+    ${
+      contacts.length > 0
+        ? `<div class="search-bar">
+             <button id="clean-phones-btn" class="icon-btn">🧹 Unificar teléfonos duplicados</button>
+             <button id="delete-all-btn" class="delete-btn">✕ Borrar todo</button>
+           </div>`
+        : ''
+    }
     <div class="section-title">${contacts.length} contacto${contacts.length === 1 ? '' : 's'} en total</div>
     <div id="todos-list" class="contact-list"></div>
   `;
+  const cleanPhonesBtn = document.getElementById('clean-phones-btn');
+  if (cleanPhonesBtn) {
+    cleanPhonesBtn.addEventListener('click', () => {
+      if (
+        confirm(
+          '¿Unificar los teléfonos duplicados de todos los contactos? Si un contacto tiene el mismo número repetido en varios campos de teléfono (solo con formato distinto), se dejará únicamente en el primero, bien formateado.'
+        )
+      ) {
+        const changed = cleanAllContactsPhones();
+        showToast(changed > 0 ? `✅ Se actualizaron ${changed} contactos.` : 'No había teléfonos duplicados que unificar.');
+        renderCurrentTab();
+      }
+    });
+  }
   const deleteAllBtn = document.getElementById('delete-all-btn');
   if (deleteAllBtn) {
     deleteAllBtn.addEventListener('click', () => {
@@ -152,8 +173,13 @@ function contactFieldsHtml(contact) {
 
 function contactCardHtml(c, context) {
   const name = escapeHtml(contactDisplayName(c));
+  const selecting = context === 'list' && listSelectionState.active;
+  const checkbox = selecting
+    ? `<label class="contact-select"><input type="checkbox" class="contact-select-checkbox" data-id="${c.id}" ${listSelectionState.selected.has(c.id) ? 'checked' : ''} /></label>`
+    : '';
   return `
     <div class="card contact-card" data-id="${c.id}">
+      ${checkbox}
       <div class="contact-main">
         <div class="contact-name">${name}</div>
         <div class="contact-fields">${contactFieldsHtml(c)}</div>
@@ -187,6 +213,14 @@ function wireContactCards(container, context, listId) {
         showToast('Quitado del listado.');
         renderListContactsList(listId);
       });
+    const selectCheckbox = card.querySelector('.contact-select-checkbox');
+    if (selectCheckbox) {
+      selectCheckbox.addEventListener('change', () => {
+        if (selectCheckbox.checked) listSelectionState.selected.add(id);
+        else listSelectionState.selected.delete(id);
+        updateSelectionCount();
+      });
+    }
   });
 }
 
@@ -486,6 +520,9 @@ function renderListsGrid() {
 // listado para que, al cambiar a otro, el texto no se arrastre de uno a otro.
 let listSearchState = { listId: null, query: '' };
 
+// Modo selección (para "Copiar correos electrónicos"), también por listado.
+let listSelectionState = { listId: null, active: false, selected: new Set() };
+
 function renderListDetail(listId) {
   const list = DATA.lists.find((l) => l.id === listId);
   const main = document.getElementById('main');
@@ -494,6 +531,7 @@ function renderListDetail(listId) {
     return;
   }
   if (listSearchState.listId !== listId) listSearchState = { listId, query: '' };
+  if (listSelectionState.listId !== listId) listSelectionState = { listId, active: false, selected: new Set() };
   main.innerHTML = `
     <div class="list-detail-header">
       <button id="back-btn" class="icon-btn">← Listados</button>
@@ -504,7 +542,18 @@ function renderListDetail(listId) {
       <button id="add-contacts-btn" class="primary-btn">+ Añadir contactos</button>
       <button id="import-list-excel-btn" class="icon-btn">Importar Excel a este listado</button>
       <button id="export-list-excel-btn" class="icon-btn">Exportar este listado a Excel</button>
+      <button id="toggle-select-btn" class="icon-btn">${listSelectionState.active ? 'Cancelar selección' : '☑ Seleccionar'}</button>
     </div>
+    ${
+      listSelectionState.active
+        ? `<div class="search-bar selection-toolbar">
+             <button id="select-all-btn" class="icon-btn">Seleccionar todos</button>
+             <button id="select-none-btn" class="icon-btn">Ninguno</button>
+             <button id="copy-emails-btn" class="primary-btn">📋 Copiar correos electrónicos</button>
+             <span id="selection-count" class="section-title"></span>
+           </div>`
+        : ''
+    }
     <div id="list-search-meta" class="section-title"></div>
     <div id="list-contacts" class="contact-list"></div>
   `;
@@ -512,6 +561,22 @@ function renderListDetail(listId) {
   document.getElementById('add-contacts-btn').addEventListener('click', () => openAddToListModal(listId));
   document.getElementById('import-list-excel-btn').addEventListener('click', () => pickExcelFile((file) => handleExcelImport(file, listId)));
   document.getElementById('export-list-excel-btn').addEventListener('click', () => exportExcel(listContacts(listId), `listado-${slugify(list.name)}`));
+  document.getElementById('toggle-select-btn').addEventListener('click', () => {
+    listSelectionState.active = !listSelectionState.active;
+    listSelectionState.selected.clear();
+    renderListDetail(listId);
+  });
+  if (listSelectionState.active) {
+    document.getElementById('select-all-btn').addEventListener('click', () => {
+      listContacts(listId).forEach((c) => listSelectionState.selected.add(c.id));
+      renderListContactsList(listId);
+    });
+    document.getElementById('select-none-btn').addEventListener('click', () => {
+      listSelectionState.selected.clear();
+      renderListContactsList(listId);
+    });
+    document.getElementById('copy-emails-btn').addEventListener('click', () => copySelectedEmails());
+  }
   const searchInput = document.getElementById('list-search-input');
   searchInput.value = listSearchState.query;
   searchInput.addEventListener('input', () => {
@@ -535,6 +600,80 @@ function renderListContactsList(listId) {
         ? '<p class="empty">Sin resultados en este listado.</p>'
         : contacts.map((c) => contactCardHtml(c, 'list')).join('');
   wireContactCards(el, 'list', listId);
+  updateSelectionCount();
+}
+
+function updateSelectionCount() {
+  const el = document.getElementById('selection-count');
+  if (!el) return;
+  const n = listSelectionState.selected.size;
+  el.textContent = `${n} seleccionado${n === 1 ? '' : 's'}`;
+}
+
+// ---------- Copiar correos electrónicos al portapapeles ----------
+
+function copyTextToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text).catch(() => copyViaExecCommand(text));
+  }
+  return copyViaExecCommand(text);
+}
+
+function copyViaExecCommand(text) {
+  return new Promise((resolve, reject) => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    let ok = false;
+    try {
+      ok = document.execCommand('copy');
+    } catch (e) {
+      // ok se queda en false
+    }
+    document.body.removeChild(ta);
+    if (ok) resolve();
+    else reject(new Error('No se pudo copiar al portapapeles.'));
+  });
+}
+
+// Recoge los correos de todos los campos de tipo email (Correo electrónico,
+// Correo secundario, o cualquier otro que se llame así) de los contactos
+// seleccionados, separando también celdas con varios correos, y los copia
+// como una lista separada por comas — el formato que aceptan Gmail, Outlook,
+// etc. al pegar directamente en el campo de destinatarios.
+function copySelectedEmails() {
+  const selectedIds = Array.from(listSelectionState.selected);
+  if (selectedIds.length === 0) {
+    showToast('No has seleccionado ningún contacto.');
+    return;
+  }
+  const emailFields = DATA.fields.filter((f) => fieldKind(f) === 'email');
+  const emails = new Set();
+  selectedIds.forEach((id) => {
+    const c = getContact(id);
+    if (!c || !c.fields) return;
+    emailFields.forEach((field) => {
+      const raw = c.fields[field.key];
+      if (!raw) return;
+      splitMultiValues(raw).forEach((part) => {
+        const trimmed = part.trim();
+        if (trimmed) emails.add(trimmed);
+      });
+    });
+  });
+  if (emails.size === 0) {
+    showToast('Los contactos seleccionados no tienen correo electrónico.');
+    return;
+  }
+  const text = Array.from(emails).join(', ');
+  copyTextToClipboard(text).then(
+    () => showToast(`✅ ${emails.size} correo${emails.size === 1 ? '' : 's'} copiado${emails.size === 1 ? '' : 's'} al portapapeles.`),
+    () => alert('No se pudo copiar al portapapeles automáticamente. Cópialos a mano:\n\n' + text)
+  );
 }
 
 function openAddToListModal(listId) {
