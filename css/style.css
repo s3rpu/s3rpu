@@ -18,6 +18,9 @@
   --header-bg: linear-gradient(90deg, #0a246a, #a6caf0);
   --header-text: #ffffff;
   --header-border: #000080;
+  --hover-bg: #dce6f7;
+  --hover-border: #6a8ac4;
+  --stripe-bg: #eef2f8;
   --radius: 0;
   --shadow: 2px 2px 0 rgba(0, 0, 0, 0.4);
 }
@@ -42,6 +45,9 @@
   --header-bg: linear-gradient(90deg, #06153f, #1e3f6e);
   --header-text: #f0f0f0;
   --header-border: #000000;
+  --hover-bg: #2a3a5a;
+  --hover-border: #5a86d6;
+  --stripe-bg: #262626;
   --shadow: 2px 2px 0 rgba(0, 0, 0, 0.6);
 }
 
@@ -106,6 +112,11 @@ body {
   cursor: pointer;
 }
 
+.icon-btn:hover {
+  background: var(--hover-bg);
+  border-color: var(--hover-border);
+}
+
 .icon-btn:active {
   border-style: inset;
 }
@@ -120,6 +131,10 @@ body {
   font-family: inherit;
   font-size: 12px;
   cursor: pointer;
+}
+
+.primary-btn:hover {
+  border-color: var(--hover-border);
 }
 
 .primary-btn:active {
@@ -198,6 +213,11 @@ body {
   font-weight: 400;
 }
 
+.tab:not(.active):hover {
+  background: var(--hover-bg);
+  border-color: var(--hover-border);
+}
+
 .tab.active {
   background: var(--bg-card);
   border-bottom: 2px solid var(--bg-card);
@@ -245,6 +265,11 @@ body {
   padding: 5px 10px;
 }
 
+.delete-btn:hover {
+  background: var(--hover-bg);
+  border-color: var(--hover-border);
+}
+
 .delete-btn:active {
   border-style: inset;
 }
@@ -258,7 +283,7 @@ body {
   flex-wrap: wrap;
 }
 
-.search-bar input[type='search'] {
+.search-bar input[type='text'] {
   flex: 1;
   min-width: 200px;
   background: var(--bg-card);
@@ -270,7 +295,7 @@ body {
   font-size: 12px;
 }
 
-.search-bar input[type='search']:focus {
+.search-bar input[type='text']:focus {
   outline: 1px dotted var(--accent);
 }
 
@@ -287,6 +312,11 @@ body {
   gap: 12px;
   flex-wrap: wrap;
   position: relative;
+}
+
+/* Franja alterna, como en un listado clásico de Windows (ListView). */
+.contact-list .contact-card:nth-child(even) {
+  background: var(--stripe-bg);
 }
 
 .contact-card.compact {

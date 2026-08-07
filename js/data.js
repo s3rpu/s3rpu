@@ -119,6 +119,17 @@ function deleteContact(id) {
   saveData(DATA);
 }
 
+// Borra todos los contactos. Los listados se conservan (con nombre) pero
+// quedan vacíos, en vez de borrarse también, para no destruir esa
+// organización si luego se vuelve a importar/crear contactos.
+function deleteAllContacts() {
+  DATA.contacts = [];
+  DATA.lists.forEach((list) => {
+    list.contactIds = [];
+  });
+  saveData(DATA);
+}
+
 function getContact(id) {
   return DATA.contacts.find((c) => c.id === id) || null;
 }

@@ -85,9 +85,20 @@ function renderTodos() {
   const main = document.getElementById('main');
   const contacts = DATA.contacts.slice().sort((a, b) => contactDisplayName(a).localeCompare(contactDisplayName(b), 'es'));
   main.innerHTML = `
+    ${contacts.length > 0 ? '<div class="search-bar"><button id="delete-all-btn" class="delete-btn">✕ Borrar todo</button></div>' : ''}
     <div class="section-title">${contacts.length} contacto${contacts.length === 1 ? '' : 's'} en total</div>
     <div id="todos-list" class="contact-list"></div>
   `;
+  const deleteAllBtn = document.getElementById('delete-all-btn');
+  if (deleteAllBtn) {
+    deleteAllBtn.addEventListener('click', () => {
+      if (confirm(`¿De verdad quieres borrarlo todo? Se eliminarán los ${contacts.length} contactos de la base de datos (los listados se quedan vacíos, pero no se borran). Esta acción no se puede deshacer.`)) {
+        deleteAllContacts();
+        showToast('Se ha borrado toda la base de datos.');
+        renderCurrentTab();
+      }
+    });
+  }
   const listEl = document.getElementById('todos-list');
   listEl.innerHTML = contacts.length === 0 ? '<p class="empty">Todavía no hay contactos. Importa un Excel/CSV o crea uno nuevo.</p>' : contacts.map((c) => contactCardHtml(c, 'search')).join('');
   wireContactCards(listEl, 'search', null);
@@ -99,7 +110,7 @@ function renderBuscar() {
   const main = document.getElementById('main');
   main.innerHTML = `
     <div class="search-bar">
-      <input type="search" id="search-input" placeholder="Buscar por nombre, cargo, teléfono, email…" />
+      <input type="text" id="search-input" placeholder="Buscar por nombre, cargo, teléfono, email…" />
       <button id="new-contact-btn" class="primary-btn">+ Nuevo contacto</button>
     </div>
     <div id="search-meta" class="section-title"></div>
@@ -489,7 +500,7 @@ function renderListDetail(listId) {
       <h2 class="day-title">${escapeHtml(list.name)}</h2>
     </div>
     <div class="search-bar">
-      <input type="search" id="list-search-input" placeholder="Buscar dentro de este listado…" />
+      <input type="text" id="list-search-input" placeholder="Buscar dentro de este listado…" />
       <button id="add-contacts-btn" class="primary-btn">+ Añadir contactos</button>
       <button id="import-list-excel-btn" class="icon-btn">Importar Excel a este listado</button>
       <button id="export-list-excel-btn" class="icon-btn">Exportar este listado a Excel</button>
@@ -531,7 +542,7 @@ function openAddToListModal(listId) {
   overlay.innerHTML = `
     <div class="modal card">
       <h3>Añadir contactos al listado</h3>
-      <input type="search" id="add-search-input" placeholder="Buscar contacto…" class="modal-search" />
+      <input type="text" id="add-search-input" placeholder="Buscar contacto…" class="modal-search" />
       <div id="add-search-meta" class="section-title"></div>
       <div id="add-search-results" class="contact-list compact"></div>
       <div class="modal-actions">
