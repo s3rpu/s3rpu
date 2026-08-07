@@ -97,7 +97,7 @@ function searchContacts(query) {
 }
 
 function createContact(fieldsObj) {
-  const contact = { id: uid(), fields: { ...fieldsObj } };
+  const contact = { id: uid(), fields: cleanPhoneFields(fieldsObj) };
   DATA.contacts.push(contact);
   saveData(DATA);
   return contact;
@@ -106,7 +106,7 @@ function createContact(fieldsObj) {
 function updateContact(id, fieldsObj) {
   const contact = DATA.contacts.find((c) => c.id === id);
   if (!contact) return null;
-  contact.fields = { ...fieldsObj };
+  contact.fields = cleanPhoneFields(fieldsObj);
   saveData(DATA);
   return contact;
 }
@@ -167,6 +167,43 @@ function fieldKind(field) {
   if (/correo|email|mail/.test(s)) return 'email';
   if (/telefono|movil|celular|whatsapp/.test(s)) return 'phone';
   return null;
+}
+
+// Da formato "612 34 56 78" a un teléfono español de 9 dígitos. Deja
+// cualquier otra cosa tal cual (varios números en una celda, extensiones,
+// prefijos internacionales...) para no estropear datos que no encajan en
+// ese patrón.
+function formatPhone(raw) {
+  const str = (raw || '').toString().trim();
+  if (/[,;/]/.test(str)) return str;
+  const digits = str.replace(/[^0-9]/g, '');
+  if (digits.length !== 9) return str;
+  return `${digits.slice(0, 3)} ${digits.slice(3, 5)} ${digits.slice(5, 7)} ${digits.slice(7, 9)}`;
+}
+
+// Es habitual que "Teléfono móvil" y "Teléfono fijo" (u otro campo de
+// teléfono) acaben con el mismo número solo porque se escribió con un
+// formato distinto ("612345678" frente a "612 34 56 78"). Al guardar un
+// contacto, si dos campos de teléfono coinciden en el número, se deja solo
+// el primero (normalmente "Teléfono móvil", por ir antes en la lista de
+// campos) con el número bien formateado, y se vacía el resto.
+function cleanPhoneFields(fieldsObj) {
+  const result = { ...fieldsObj };
+  const seen = new Set();
+  DATA.fields.forEach((field) => {
+    if (fieldKind(field) !== 'phone') return;
+    const raw = result[field.key];
+    if (!raw) return;
+    const normalized = normalizePhone(raw);
+    if (!normalized) return;
+    if (seen.has(normalized)) {
+      delete result[field.key];
+    } else {
+      seen.add(normalized);
+      result[field.key] = formatPhone(raw);
+    }
+  });
+  return result;
 }
 
 function matchKeysFor(fields) {
