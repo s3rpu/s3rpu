@@ -258,6 +258,19 @@ function addContactToList(listId, contactId) {
   saveData(DATA);
 }
 
+// Al unificar un contacto con otro (y borrar el primero), hace que el que
+// sobrevive quede en todos los listados en los que estaba el que desaparece.
+// Sin esto, unificar un contacto que forma parte de un listado hacía que
+// desapareciera de él en vez de quedarse actualizado.
+function transferListMemberships(fromId, toId) {
+  DATA.lists.forEach((list) => {
+    if (list.contactIds.includes(fromId) && !list.contactIds.includes(toId)) {
+      list.contactIds.push(toId);
+    }
+  });
+  saveData(DATA);
+}
+
 function removeContactFromList(listId, contactId) {
   const list = DATA.lists.find((l) => l.id === listId);
   if (!list) return;

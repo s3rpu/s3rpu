@@ -19,6 +19,21 @@ function showToast(html, variant = '') {
   }, 2600);
 }
 
+// Cierra un overlay al hacer clic en el fondo, pero solo si el gesto empezó
+// Y terminó en el fondo. Si solo se comprobase el click final, seleccionar
+// texto arrastrando el ratón desde un campo hasta fuera del modal también
+// lo cerraría (el mouseup queda fuera, y ese es el punto que cuenta para el
+// evento "click").
+function wireOverlayBackdropClose(overlay, onBackdropClick) {
+  let downOnBackdrop = false;
+  overlay.addEventListener('mousedown', (e) => {
+    downOnBackdrop = e.target === overlay;
+  });
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay && downOnBackdrop) onBackdropClick();
+  });
+}
+
 // ---------- Navegación ----------
 
 function currentRoute() {
@@ -255,9 +270,7 @@ function openContactModal(contact, prefillValues) {
   });
 
   document.getElementById('cancel-btn').addEventListener('click', closeModal);
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) closeModal();
-  });
+  wireOverlayBackdropClose(overlay, closeModal);
 
   document.getElementById('contact-form').addEventListener('submit', (e) => {
     e.preventDefault();
@@ -323,7 +336,10 @@ function openDuplicateWarningModal(fieldsObj, duplicates, existingContact) {
       const target = getContact(targetId);
       const merged = { ...target.fields, ...fieldsObj };
       updateContact(targetId, merged);
-      if (existingContact && existingContact.id !== targetId) deleteContact(existingContact.id);
+      if (existingContact && existingContact.id !== targetId) {
+        transferListMemberships(existingContact.id, targetId);
+        deleteContact(existingContact.id);
+      }
       showToast(`Contacto unificado con "${contactDisplayName(target)}".`);
       closeModal();
       renderCurrentTab();
@@ -382,9 +398,7 @@ function showPromptModal({ title, message, defaultValue = '', confirmLabel = 'Ac
       finish(input.value);
     });
     document.getElementById('prompt-cancel-btn').addEventListener('click', () => finish(null));
-    overlay.addEventListener('click', (e) => {
-      if (e.target === overlay) finish(null);
-    });
+    wireOverlayBackdropClose(overlay, () => finish(null));
   });
 }
 
@@ -457,6 +471,10 @@ function renderListsGrid() {
   });
 }
 
+// Búsqueda local dentro de un listado. Se guarda junto con el id del
+// listado para que, al cambiar a otro, el texto no se arrastre de uno a otro.
+let listSearchState = { listId: null, query: '' };
+
 function renderListDetail(listId) {
   const list = DATA.lists.find((l) => l.id === listId);
   const main = document.getElementById('main');
@@ -464,30 +482,47 @@ function renderListDetail(listId) {
     main.innerHTML = '<p class="empty">Listado no encontrado.</p>';
     return;
   }
+  if (listSearchState.listId !== listId) listSearchState = { listId, query: '' };
   main.innerHTML = `
     <div class="list-detail-header">
       <button id="back-btn" class="icon-btn">← Listados</button>
       <h2 class="day-title">${escapeHtml(list.name)}</h2>
     </div>
     <div class="search-bar">
+      <input type="search" id="list-search-input" placeholder="Buscar dentro de este listado…" />
       <button id="add-contacts-btn" class="primary-btn">+ Añadir contactos</button>
       <button id="import-list-excel-btn" class="icon-btn">Importar Excel a este listado</button>
       <button id="export-list-excel-btn" class="icon-btn">Exportar este listado a Excel</button>
     </div>
+    <div id="list-search-meta" class="section-title"></div>
     <div id="list-contacts" class="contact-list"></div>
   `;
   document.getElementById('back-btn').addEventListener('click', () => navigate('listas'));
   document.getElementById('add-contacts-btn').addEventListener('click', () => openAddToListModal(listId));
   document.getElementById('import-list-excel-btn').addEventListener('click', () => pickExcelFile((file) => handleExcelImport(file, listId)));
   document.getElementById('export-list-excel-btn').addEventListener('click', () => exportExcel(listContacts(listId), `listado-${slugify(list.name)}`));
+  const searchInput = document.getElementById('list-search-input');
+  searchInput.value = listSearchState.query;
+  searchInput.addEventListener('input', () => {
+    listSearchState.query = searchInput.value;
+    renderListContactsList(listId);
+  });
   renderListContactsList(listId);
 }
 
 function renderListContactsList(listId) {
   const el = document.getElementById('list-contacts');
-  const contacts = listContacts(listId);
+  const meta = document.getElementById('list-search-meta');
+  const all = listContacts(listId);
+  const query = listSearchState.listId === listId ? listSearchState.query : '';
+  const contacts = query ? all.filter((c) => contactMatches(c, query)) : all;
+  if (meta) meta.textContent = all.length === 0 ? '' : `${contacts.length} de ${all.length} contacto${all.length === 1 ? '' : 's'}`;
   el.innerHTML =
-    contacts.length === 0 ? '<p class="empty">Este listado todavía no tiene contactos. Usa "+ Añadir contactos".</p>' : contacts.map((c) => contactCardHtml(c, 'list')).join('');
+    all.length === 0
+      ? '<p class="empty">Este listado todavía no tiene contactos. Usa "+ Añadir contactos".</p>'
+      : contacts.length === 0
+        ? '<p class="empty">Sin resultados en este listado.</p>'
+        : contacts.map((c) => contactCardHtml(c, 'list')).join('');
   wireContactCards(el, 'list', listId);
 }
 
@@ -540,11 +575,9 @@ function openAddToListModal(listId) {
     closeModal();
     renderCurrentTab();
   });
-  overlay.addEventListener('click', (e) => {
-    if (e.target === overlay) {
-      closeModal();
-      renderCurrentTab();
-    }
+  wireOverlayBackdropClose(overlay, () => {
+    closeModal();
+    renderCurrentTab();
   });
 }
 
