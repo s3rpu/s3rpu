@@ -230,7 +230,14 @@ function findDuplicatesIndexed(fieldsObj, index) {
   emailKeys.forEach((e) => {
     if (index.byEmail.has(e)) index.byEmail.get(e).forEach((c) => add(c, 'Email'));
   });
-  return Array.from(found.values()).map((m) => ({ contact: m.contact, reasons: Array.from(m.reasons) }));
+  // Coincidir solo en el nombre no es suficiente para avisar de un posible
+  // duplicado: dos personas distintas (p.ej. una "Lola" de un centro
+  // educativo y otra de una empresa) pueden compartir nombre sin ser el
+  // mismo contacto. Hacen falta al menos 2 coincidencias (nombre+teléfono,
+  // teléfono+email, etc.) para considerarlo un posible duplicado.
+  return Array.from(found.values())
+    .filter((m) => m.reasons.size >= 2)
+    .map((m) => ({ contact: m.contact, reasons: Array.from(m.reasons) }));
 }
 
 // Compara nombre completo, teléfono/móvil y email contra los contactos ya
