@@ -25,6 +25,7 @@ function currentRoute() {
   const hash = window.location.hash.replace('#', '');
   if (hash.startsWith('listas/')) return { tab: 'listas', listId: hash.slice('listas/'.length) };
   if (hash === 'listas') return { tab: 'listas', listId: null };
+  if (hash === 'todos') return { tab: 'todos', listId: null };
   return { tab: 'buscar', listId: null };
 }
 
@@ -39,6 +40,8 @@ function renderCurrentTab() {
   if (route.tab === 'listas') {
     if (route.listId) renderListDetail(route.listId);
     else renderListas();
+  } else if (route.tab === 'todos') {
+    renderTodos();
   } else {
     renderBuscar();
   }
@@ -49,6 +52,7 @@ function renderTabs(activeTab) {
   nav.innerHTML = '';
   const tabs = [
     { id: 'buscar', label: 'Buscar' },
+    { id: 'todos', label: 'Base de datos' },
     { id: 'listas', label: 'Listados' },
   ];
   tabs.forEach((t) => {
@@ -58,6 +62,20 @@ function renderTabs(activeTab) {
     btn.addEventListener('click', () => navigate(t.id));
     nav.appendChild(btn);
   });
+}
+
+// ---------- Pestaña Base de datos (listado completo, sin filtrar) ----------
+
+function renderTodos() {
+  const main = document.getElementById('main');
+  const contacts = DATA.contacts.slice().sort((a, b) => contactDisplayName(a).localeCompare(contactDisplayName(b), 'es'));
+  main.innerHTML = `
+    <div class="section-title">${contacts.length} contacto${contacts.length === 1 ? '' : 's'} en total</div>
+    <div id="todos-list" class="contact-list"></div>
+  `;
+  const listEl = document.getElementById('todos-list');
+  listEl.innerHTML = contacts.length === 0 ? '<p class="empty">Todavía no hay contactos. Importa un Excel/CSV o crea uno nuevo.</p>' : contacts.map((c) => contactCardHtml(c, 'search')).join('');
+  wireContactCards(listEl, 'search', null);
 }
 
 // ---------- Pestaña Buscar ----------
@@ -397,11 +415,13 @@ function renderListDetail(listId) {
     </div>
     <div class="search-bar">
       <button id="add-contacts-btn" class="primary-btn">+ Añadir contactos</button>
+      <button id="export-list-excel-btn" class="icon-btn">Exportar este listado a Excel</button>
     </div>
     <div id="list-contacts" class="contact-list"></div>
   `;
   document.getElementById('back-btn').addEventListener('click', () => navigate('listas'));
   document.getElementById('add-contacts-btn').addEventListener('click', () => openAddToListModal(listId));
+  document.getElementById('export-list-excel-btn').addEventListener('click', () => exportExcel(listContacts(listId), `listado-${slugify(list.name)}`));
   renderListContactsList(listId);
 }
 
@@ -567,6 +587,7 @@ function openImportReviewModal(pendingRows) {
         <h3>⚠️ Revisión de posibles duplicados</h3>
         <p class="dup-intro">${rows.length} fila${rows.length === 1 ? '' : 's'} del archivo coinciden con contactos ya existentes o repetidos dentro del propio archivo. Decide qué hacer con cada una.</p>
         <div class="modal-actions modal-actions-start">
+          <button type="button" id="merge-all-rest" class="icon-btn">Unificar todos</button>
           <button type="button" id="import-all-rest" class="icon-btn">Importar todas como nuevas</button>
           <button type="button" id="skip-all-rest" class="icon-btn">Omitir todas</button>
         </div>
@@ -595,6 +616,17 @@ function openImportReviewModal(pendingRows) {
     document.getElementById('close-review-btn').addEventListener('click', () => {
       closeModal();
       renderCurrentTab();
+    });
+    document.getElementById('merge-all-rest').addEventListener('click', () => {
+      const n = rows.length;
+      rows.forEach((r) => {
+        const target = r.matches[0].contact;
+        updateContact(target.id, { ...target.fields, ...r.fieldsObj });
+      });
+      rows.length = 0;
+      closeModal();
+      renderCurrentTab();
+      showToast(`Se unificaron ${n} filas con su contacto coincidente.`);
     });
     document.getElementById('import-all-rest').addEventListener('click', () => {
       const n = rows.length;
@@ -636,20 +668,66 @@ function openImportReviewModal(pendingRows) {
 }
 
 // ---------- Exportar a Excel ----------
-// Vuelca todos los contactos a un .xlsx con una columna por cada campo
-// conocido, para poder tener siempre una copia del directorio fuera de la
-// app (por si se pierde el programa, el ordenador, etc.).
+// Genera un libro con el mismo formato que CONTACTOS_COMPLETO_TODOS.xlsx: una
+// hoja BUSCADOR con una fórmula matricial que filtra en vivo (escribes en B3
+// y aparecen las filas que coinciden en cualquier campo) y una hoja CONTACTOS
+// con todos los datos. La fórmula usa LET/LAMBDA/BYROW/FILTER, que solo
+// funcionan en Excel 365 o Excel para la web — igual que en el archivo
+// original que sirvió de referencia.
 
-function exportExcel() {
+function excelColumnLetter(n) {
+  let s = '';
+  while (n > 0) {
+    const rem = (n - 1) % 26;
+    s = String.fromCharCode(65 + rem) + s;
+    n = Math.floor((n - 1) / 26);
+  }
+  return s;
+}
+
+function buildBuscadorFormulas(dataRowCount, fieldCount) {
+  const lastRow = dataRowCount + 1; // +1 porque la fila 1 de CONTACTOS es la cabecera
+  const range = `CONTACTOS!$A$2:$${excelColumnLetter(fieldCount)}$${lastRow}`;
+  const indexCols = Array.from({ length: fieldCount }, (_, i) => `INDEX(_xlpm.d,,${i + 1})`).join(',');
+  const countFormula = `IF($B$3="","","Resultados encontrados: "&SUM(--ISNUMBER(SEARCH($B$3,_xlfn.BYROW(${range},_xlfn.LAMBDA(_xlpm.r,_xlfn.TEXTJOIN(" ",TRUE,_xlpm.r)))))))`;
+  const searchFormula = `IF($B$3="","",_xlfn.LET(_xlpm.d,${range},_xlpm.q,$B$3,_xlpm.conc,_xlfn.BYROW(_xlpm.d,_xlfn.LAMBDA(_xlpm.r,_xlfn.TEXTJOIN(" ",TRUE,_xlpm.r))),_xlpm.hit,ISNUMBER(SEARCH(_xlpm.q,_xlpm.conc)),_xlpm.fil,_xlfn.SEQUENCE(ROWS(_xlpm.d),1,2),_xlpm.res,_xlfn.HSTACK("CONTACTOS!A"&_xlpm.fil,_xlpm.fil,${indexCols}),_xlfn.TAKE(_xlfn._xlws.FILTER(_xlpm.res,_xlpm.hit,"Sin resultados"),100)))`;
+  return { countFormula, searchFormula };
+}
+
+// contacts: lista a exportar (por defecto todos). filenamePrefix: para poder
+// distinguir la exportación completa de la de un listado concreto.
+function exportExcel(contacts, filenamePrefix) {
+  const source = contacts || DATA.contacts;
   const headers = DATA.fields.map((f) => f.label);
-  const rows = DATA.contacts
-    .slice()
-    .sort((a, b) => contactDisplayName(a).localeCompare(contactDisplayName(b), 'es'))
-    .map((c) => DATA.fields.map((f) => (c.fields && c.fields[f.key]) || ''));
-  const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  const sorted = source.slice().sort((a, b) => contactDisplayName(a).localeCompare(contactDisplayName(b), 'es'));
+  const dataRows = sorted.map((c) => DATA.fields.map((f) => (c.fields && c.fields[f.key]) || ''));
+
+  const contactosSheet = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
+
+  const buscadorSheet = XLSX.utils.aoa_to_sheet([
+    ['BUSCADOR DE CONTACTOS'],
+    [],
+    ['Escribe aquí:', ''],
+    [`Busca en cualquier campo (${headers.join(', ')}). Los resultados aparecen automáticamente.`],
+    [],
+    [],
+    ['Casilla', 'Fila', ...headers],
+  ]);
+  if (dataRows.length > 0) {
+    const { countFormula, searchFormula } = buildBuscadorFormulas(dataRows.length, headers.length);
+    buscadorSheet['B5'] = { f: countFormula };
+    buscadorSheet['A8'] = { f: searchFormula };
+    // aoa_to_sheet calculó el rango ('!ref') solo a partir de las 7 filas del
+    // array; sin ampliarlo, las celdas B5/A8 quedan fuera y no se serializan
+    // al guardar el archivo.
+    const endCol = excelColumnLetter(2 + headers.length);
+    buscadorSheet['!ref'] = `A1:${endCol}8`;
+  }
+
   const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Contactos');
-  XLSX.writeFile(workbook, `contactos-${new Date().toISOString().slice(0, 10)}.xlsx`);
+  XLSX.utils.book_append_sheet(workbook, buscadorSheet, 'BUSCADOR');
+  XLSX.utils.book_append_sheet(workbook, contactosSheet, 'CONTACTOS');
+  XLSX.writeFile(workbook, `${filenamePrefix || 'contactos'}-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
 // ---------- Backup completo (JSON) ----------
@@ -685,8 +763,25 @@ function importBackup(file) {
 
 // ---------- Inicio ----------
 
+// ---------- Modo claro / oscuro ----------
+
+function initTheme() {
+  const btn = document.getElementById('theme-toggle-btn');
+  const applyTheme = (theme) => {
+    document.documentElement.setAttribute('data-theme', theme);
+    btn.textContent = theme === 'dark' ? '☀️ Claro' : '🌙 Oscuro';
+  };
+  applyTheme(localStorage.getItem('contactos.theme') || 'light');
+  btn.addEventListener('click', () => {
+    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+    localStorage.setItem('contactos.theme', next);
+    applyTheme(next);
+  });
+}
+
 function init() {
-  document.getElementById('export-excel-btn').addEventListener('click', exportExcel);
+  initTheme();
+  document.getElementById('export-excel-btn').addEventListener('click', () => exportExcel());
   document.getElementById('export-btn').addEventListener('click', exportBackup);
   document.getElementById('import-input').addEventListener('change', (evt) => {
     const file = evt.target.files[0];
