@@ -1,0 +1,33 @@
+{
+  "name": "directorio-contactos",
+  "version": "1.0.0",
+  "description": "Directorio de Contactos del Ayuntamiento",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "node copy-app.js && electron .",
+    "build:win": "node copy-app.js && electron-builder --win nsis portable --x64"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "es.ayuntamiento.directoriocontactos",
+    "productName": "Directorio de Contactos",
+    "publish": null,
+    "files": ["main.js", "app/**/*"],
+    "win": {
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
