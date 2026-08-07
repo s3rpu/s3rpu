@@ -668,66 +668,57 @@ function openImportReviewModal(pendingRows) {
 }
 
 // ---------- Exportar a Excel ----------
-// Genera un libro con el mismo formato que CONTACTOS_COMPLETO_TODOS.xlsx: una
-// hoja BUSCADOR con una fórmula matricial que filtra en vivo (escribes en B3
-// y aparecen las filas que coinciden en cualquier campo) y una hoja CONTACTOS
-// con todos los datos. La fórmula usa LET/LAMBDA/BYROW/FILTER, que solo
-// funcionan en Excel 365 o Excel para la web — igual que en el archivo
-// original que sirvió de referencia.
-
-function excelColumnLetter(n) {
-  let s = '';
-  while (n > 0) {
-    const rem = (n - 1) % 26;
-    s = String.fromCharCode(65 + rem) + s;
-    n = Math.floor((n - 1) / 26);
-  }
-  return s;
-}
-
-function buildBuscadorFormulas(dataRowCount, fieldCount) {
-  const lastRow = dataRowCount + 1; // +1 porque la fila 1 de CONTACTOS es la cabecera
-  const range = `CONTACTOS!$A$2:$${excelColumnLetter(fieldCount)}$${lastRow}`;
-  const indexCols = Array.from({ length: fieldCount }, (_, i) => `INDEX(_xlpm.d,,${i + 1})`).join(',');
-  const countFormula = `IF($B$3="","","Resultados encontrados: "&SUM(--ISNUMBER(SEARCH($B$3,_xlfn.BYROW(${range},_xlfn.LAMBDA(_xlpm.r,_xlfn.TEXTJOIN(" ",TRUE,_xlpm.r)))))))`;
-  const searchFormula = `IF($B$3="","",_xlfn.LET(_xlpm.d,${range},_xlpm.q,$B$3,_xlpm.conc,_xlfn.BYROW(_xlpm.d,_xlfn.LAMBDA(_xlpm.r,_xlfn.TEXTJOIN(" ",TRUE,_xlpm.r))),_xlpm.hit,ISNUMBER(SEARCH(_xlpm.q,_xlpm.conc)),_xlpm.fil,_xlfn.SEQUENCE(ROWS(_xlpm.d),1,2),_xlpm.res,_xlfn.HSTACK("CONTACTOS!A"&_xlpm.fil,_xlpm.fil,${indexCols}),_xlfn.TAKE(_xlfn._xlws.FILTER(_xlpm.res,_xlpm.hit,"Sin resultados"),100)))`;
-  return { countFormula, searchFormula };
-}
+// Usa ExcelJS (en vez de la librería de importación) porque es la que
+// realmente escribe estilos: cabecera en color, texto en negrita,
+// autofiltro y fila fija al hacer scroll, para que se vea como una tabla
+// de verdad en vez de una lista plana.
 
 // contacts: lista a exportar (por defecto todos). filenamePrefix: para poder
 // distinguir la exportación completa de la de un listado concreto.
-function exportExcel(contacts, filenamePrefix) {
-  const source = contacts || DATA.contacts;
-  const headers = DATA.fields.map((f) => f.label);
-  const sorted = source.slice().sort((a, b) => contactDisplayName(a).localeCompare(contactDisplayName(b), 'es'));
-  const dataRows = sorted.map((c) => DATA.fields.map((f) => (c.fields && c.fields[f.key]) || ''));
+async function exportExcel(contacts, filenamePrefix) {
+  try {
+    const source = contacts || DATA.contacts;
+    const headers = DATA.fields.map((f) => f.label);
+    const sorted = source.slice().sort((a, b) => contactDisplayName(a).localeCompare(contactDisplayName(b), 'es'));
 
-  const contactosSheet = XLSX.utils.aoa_to_sheet([headers, ...dataRows]);
+    const workbook = new ExcelJS.Workbook();
+    const sheet = workbook.addWorksheet('Contactos');
+    sheet.columns = DATA.fields.map((field) => {
+      const longest = sorted.reduce((max, c) => Math.max(max, ((c.fields && c.fields[field.key]) || '').toString().length), field.label.length);
+      return { header: field.label, key: field.key, width: Math.min(45, Math.max(14, longest + 2)) };
+    });
+    sorted.forEach((c) => sheet.addRow(c.fields || {}));
 
-  const buscadorSheet = XLSX.utils.aoa_to_sheet([
-    ['BUSCADOR DE CONTACTOS'],
-    [],
-    ['Escribe aquí:', ''],
-    [`Busca en cualquier campo (${headers.join(', ')}). Los resultados aparecen automáticamente.`],
-    [],
-    [],
-    ['Casilla', 'Fila', ...headers],
-  ]);
-  if (dataRows.length > 0) {
-    const { countFormula, searchFormula } = buildBuscadorFormulas(dataRows.length, headers.length);
-    buscadorSheet['B5'] = { f: countFormula };
-    buscadorSheet['A8'] = { f: searchFormula };
-    // aoa_to_sheet calculó el rango ('!ref') solo a partir de las 7 filas del
-    // array; sin ampliarlo, las celdas B5/A8 quedan fuera y no se serializan
-    // al guardar el archivo.
-    const endCol = excelColumnLetter(2 + headers.length);
-    buscadorSheet['!ref'] = `A1:${endCol}8`;
+    const headerRow = sheet.getRow(1);
+    headerRow.eachCell((cell) => {
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF14456F' } };
+      cell.border = { bottom: { style: 'thin', color: { argb: 'FF0D2E49' } } };
+    });
+    sheet.eachRow((row, rowNumber) => {
+      row.eachCell({ includeEmpty: true }, (cell) => {
+        cell.border = { ...cell.border, bottom: cell.border && cell.border.bottom ? cell.border.bottom : { style: 'thin', color: { argb: 'FFE3E7EB' } } };
+      });
+      if (rowNumber > 1 && rowNumber % 2 === 0) {
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          if (!cell.fill || !cell.fill.fgColor) cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF4F6F8' } };
+        });
+      }
+    });
+    sheet.autoFilter = { from: { row: 1, column: 1 }, to: { row: sheet.rowCount, column: headers.length } };
+    sheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${filenamePrefix || 'contactos'}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    alert('No se pudo generar el Excel: ' + e.message);
   }
-
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, buscadorSheet, 'BUSCADOR');
-  XLSX.utils.book_append_sheet(workbook, contactosSheet, 'CONTACTOS');
-  XLSX.writeFile(workbook, `${filenamePrefix || 'contactos'}-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
 // ---------- Backup completo (JSON) ----------
