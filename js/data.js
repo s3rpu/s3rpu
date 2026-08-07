@@ -255,6 +255,28 @@ function cleanAllContactsData() {
   return changed;
 }
 
+// Comprueba si un contacto tiene algún dato relleno en campos de un tipo
+// dado ('phone' o 'email'), sin importar en qué campo concreto esté.
+function contactHasFieldKind(contact, kind) {
+  const f = contact.fields || {};
+  return DATA.fields.some((field) => fieldKind(field) === kind && f[field.key]);
+}
+
+// Filtra contactos según cómo se les puede contactar: 'all' (sin filtro),
+// 'email-only' (solo tienen correo, ni un teléfono), 'phone-only' (solo
+// tienen teléfono, ningún correo), 'both' (tienen ambos) o 'none' (no
+// tienen ni correo ni teléfono).
+function matchesContactFilter(contact, mode) {
+  if (!mode || mode === 'all') return true;
+  const hasEmail = contactHasFieldKind(contact, 'email');
+  const hasPhone = contactHasFieldKind(contact, 'phone');
+  if (mode === 'email-only') return hasEmail && !hasPhone;
+  if (mode === 'phone-only') return hasPhone && !hasEmail;
+  if (mode === 'both') return hasEmail && hasPhone;
+  if (mode === 'none') return !hasEmail && !hasPhone;
+  return true;
+}
+
 function matchKeysFor(fields) {
   const f = fields || {};
   const nameKey = normalizeText([f.nombre, f.apellidos].filter(Boolean).join(' ').trim());

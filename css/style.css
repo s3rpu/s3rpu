@@ -310,6 +310,20 @@ body {
   outline: 1px dotted var(--accent);
 }
 
+.search-bar select {
+  background: var(--bg-card);
+  border: 2px inset var(--border);
+  border-radius: 0;
+  color: var(--text);
+  padding: 6px 8px;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.search-bar select:focus {
+  outline: 1px dotted var(--accent);
+}
+
 .contact-list {
   display: flex;
   flex-direction: column;

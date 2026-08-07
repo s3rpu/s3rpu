@@ -523,6 +523,9 @@ let listSearchState = { listId: null, query: '' };
 // Modo selección (para "Copiar correos electrónicos"), también por listado.
 let listSelectionState = { listId: null, active: false, selected: new Set() };
 
+// Filtro por forma de contacto (solo correo / solo teléfono / ambos / ninguno).
+let listFilterState = { listId: null, mode: 'all' };
+
 function renderListDetail(listId) {
   const list = DATA.lists.find((l) => l.id === listId);
   const main = document.getElementById('main');
@@ -532,6 +535,7 @@ function renderListDetail(listId) {
   }
   if (listSearchState.listId !== listId) listSearchState = { listId, query: '' };
   if (listSelectionState.listId !== listId) listSelectionState = { listId, active: false, selected: new Set() };
+  if (listFilterState.listId !== listId) listFilterState = { listId, mode: 'all' };
   main.innerHTML = `
     <div class="list-detail-header">
       <button id="back-btn" class="icon-btn">← Listados</button>
@@ -539,6 +543,13 @@ function renderListDetail(listId) {
     </div>
     <div class="search-bar">
       <input type="text" id="list-search-input" placeholder="Buscar dentro de este listado…" />
+      <select id="list-filter-select" class="icon-btn">
+        <option value="all">Todos</option>
+        <option value="email-only">Solo con correo</option>
+        <option value="phone-only">Solo con teléfono</option>
+        <option value="both">Correo y teléfono</option>
+        <option value="none">Sin correo ni teléfono</option>
+      </select>
       <button id="add-contacts-btn" class="primary-btn">+ Añadir contactos</button>
       <button id="import-list-excel-btn" class="icon-btn">Importar Excel a este listado</button>
       <button id="export-list-excel-btn" class="icon-btn">Exportar este listado a Excel</button>
@@ -568,7 +579,7 @@ function renderListDetail(listId) {
   });
   if (listSelectionState.active) {
     document.getElementById('select-all-btn').addEventListener('click', () => {
-      listContacts(listId).forEach((c) => listSelectionState.selected.add(c.id));
+      getFilteredListContacts(listId).forEach((c) => listSelectionState.selected.add(c.id));
       renderListContactsList(listId);
     });
     document.getElementById('select-none-btn').addEventListener('click', () => {
@@ -583,15 +594,32 @@ function renderListDetail(listId) {
     listSearchState.query = searchInput.value;
     renderListContactsList(listId);
   });
+  const filterSelect = document.getElementById('list-filter-select');
+  filterSelect.value = listFilterState.mode;
+  filterSelect.addEventListener('change', () => {
+    listFilterState.mode = filterSelect.value;
+    renderListContactsList(listId);
+  });
   renderListContactsList(listId);
+}
+
+// Aplica a la vez la búsqueda de texto y el filtro de correo/teléfono de un
+// listado, para que "Seleccionar todos" y el propio listado siempre
+// muestren/seleccionen exactamente el mismo conjunto de contactos.
+function getFilteredListContacts(listId) {
+  const all = listContacts(listId);
+  const query = listSearchState.listId === listId ? listSearchState.query : '';
+  const mode = listFilterState.listId === listId ? listFilterState.mode : 'all';
+  return all
+    .filter((c) => (query ? contactMatches(c, query) : true))
+    .filter((c) => matchesContactFilter(c, mode));
 }
 
 function renderListContactsList(listId) {
   const el = document.getElementById('list-contacts');
   const meta = document.getElementById('list-search-meta');
   const all = listContacts(listId);
-  const query = listSearchState.listId === listId ? listSearchState.query : '';
-  const contacts = query ? all.filter((c) => contactMatches(c, query)) : all;
+  const contacts = getFilteredListContacts(listId);
   if (meta) meta.textContent = all.length === 0 ? '' : `${contacts.length} de ${all.length} contacto${all.length === 1 ? '' : 's'}`;
   el.innerHTML =
     all.length === 0
