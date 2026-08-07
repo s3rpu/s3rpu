@@ -3,14 +3,18 @@
 
 const STORAGE_KEY = 'contactos.v1';
 
+// Coincide exactamente con las columnas del Excel real del ayuntamiento
+// (CONTACTOS_COMPLETO_TODOS.xlsx) para que la importación no cree campos
+// duplicados. "Notas" es el único campo añadido que no viene del Excel.
 const DEFAULT_FIELDS = [
   { key: 'nombre', label: 'Nombre' },
-  { key: 'apellidos', label: 'Apellidos' },
-  { key: 'cargo', label: 'Cargo / Puesto' },
-  { key: 'departamento', label: 'Departamento / Área' },
-  { key: 'telefono', label: 'Teléfono' },
-  { key: 'movil', label: 'Móvil' },
-  { key: 'email', label: 'Email' },
+  { key: 'organizacion', label: 'Organización' },
+  { key: 'departamento', label: 'Departamento' },
+  { key: 'correo_electronico', label: 'Correo electrónico' },
+  { key: 'correo_secundario', label: 'Correo secundario' },
+  { key: 'telefono_movil', label: 'Teléfono móvil' },
+  { key: 'telefono_fijo', label: 'Teléfono fijo' },
+  { key: 'extension', label: 'Extensión' },
   { key: 'direccion', label: 'Dirección' },
   { key: 'notas', label: 'Notas' },
 ];
@@ -132,17 +136,51 @@ function normalizeEmail(v) {
   return (v || '').toString().trim().toLowerCase();
 }
 
+// Una misma celda puede traer varios valores (p.ej. "679684209 / 659597357"
+// o dos correos separados por coma); se separan para poder comparar cada
+// uno individualmente en vez de tratarlos como un único valor pegado.
+function splitMultiValues(v) {
+  return (v || '')
+    .toString()
+    .split(/[,;/\n]+/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+// Clasifica un campo como "teléfono" o "email" por su nombre (clave o
+// etiqueta), en vez de depender de una clave fija como 'telefono' o 'email':
+// así funciona igual con "Teléfono móvil", "Teléfono fijo", "Correo
+// electrónico", "Correo secundario", o cualquier campo que se añada luego.
+function fieldKind(field) {
+  const s = normalizeText(`${field.label} ${field.key}`);
+  if (/correo|email|mail/.test(s)) return 'email';
+  if (/telefono|movil|celular|whatsapp/.test(s)) return 'phone';
+  return null;
+}
+
 function matchKeysFor(fields) {
   const f = fields || {};
-  return {
-    nameKey: normalizeText([f.nombre, f.apellidos].filter(Boolean).join(' ').trim()),
-    phoneKeys: [f.telefono, f.movil].map(normalizePhone).filter((v) => v.length >= 6),
-    emailKey: normalizeEmail(f.email),
-  };
+  const nameKey = normalizeText([f.nombre, f.apellidos].filter(Boolean).join(' ').trim());
+  const phoneKeys = [];
+  const emailKeys = [];
+  DATA.fields.forEach((field) => {
+    const kind = fieldKind(field);
+    if (!kind || !f[field.key]) return;
+    splitMultiValues(f[field.key]).forEach((part) => {
+      if (kind === 'phone') {
+        const p = normalizePhone(part);
+        if (p.length >= 6) phoneKeys.push(p);
+      } else {
+        const e = normalizeEmail(part);
+        if (e) emailKeys.push(e);
+      }
+    });
+  });
+  return { nameKey, phoneKeys, emailKeys };
 }
 
 function indexAddContact(index, contact) {
-  const { nameKey, phoneKeys, emailKey } = matchKeysFor(contact.fields);
+  const { nameKey, phoneKeys, emailKeys } = matchKeysFor(contact.fields);
   if (nameKey) {
     if (!index.byName.has(nameKey)) index.byName.set(nameKey, []);
     index.byName.get(nameKey).push(contact);
@@ -151,10 +189,10 @@ function indexAddContact(index, contact) {
     if (!index.byPhone.has(p)) index.byPhone.set(p, []);
     index.byPhone.get(p).push(contact);
   });
-  if (emailKey) {
-    if (!index.byEmail.has(emailKey)) index.byEmail.set(emailKey, []);
-    index.byEmail.get(emailKey).push(contact);
-  }
+  emailKeys.forEach((e) => {
+    if (!index.byEmail.has(e)) index.byEmail.set(e, []);
+    index.byEmail.get(e).push(contact);
+  });
 }
 
 function buildContactIndex(excludeIds) {
@@ -168,7 +206,7 @@ function buildContactIndex(excludeIds) {
 }
 
 function findDuplicatesIndexed(fieldsObj, index) {
-  const { nameKey, phoneKeys, emailKey } = matchKeysFor(fieldsObj);
+  const { nameKey, phoneKeys, emailKeys } = matchKeysFor(fieldsObj);
   const found = new Map(); // contact.id -> { contact, reasons: Set }
   const add = (contact, reason) => {
     if (!found.has(contact.id)) found.set(contact.id, { contact, reasons: new Set() });
@@ -178,7 +216,9 @@ function findDuplicatesIndexed(fieldsObj, index) {
   phoneKeys.forEach((p) => {
     if (index.byPhone.has(p)) index.byPhone.get(p).forEach((c) => add(c, 'Teléfono'));
   });
-  if (emailKey && index.byEmail.has(emailKey)) index.byEmail.get(emailKey).forEach((c) => add(c, 'Email'));
+  emailKeys.forEach((e) => {
+    if (index.byEmail.has(e)) index.byEmail.get(e).forEach((c) => add(c, 'Email'));
+  });
   return Array.from(found.values()).map((m) => ({ contact: m.contact, reasons: Array.from(m.reasons) }));
 }
 

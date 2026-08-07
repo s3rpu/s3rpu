@@ -475,18 +475,27 @@ function openAddToListModal(listId) {
 function handleExcelImport(file) {
   const reader = new FileReader();
   reader.onload = () => {
-    try {
-      const data = new Uint8Array(reader.result);
-      const workbook = XLSX.read(data, { type: 'array' });
-      const sheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[sheetName];
-      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: false });
-      if (rows.length < 2) throw new Error('el archivo no tiene filas de datos');
-      const [header, ...dataRows] = rows;
-      runImport(header, dataRows);
-    } catch (e) {
-      alert('No se pudo importar el archivo: ' + e.message);
-    }
+    showToast('⏳ Importando y comprobando duplicados…');
+    // Deja pintar el toast antes de bloquear el hilo con el procesado (que
+    // con archivos de cientos de filas puede tardar unos segundos).
+    setTimeout(() => {
+      try {
+        const data = new Uint8Array(reader.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+        // Un libro puede traer varias hojas (p.ej. una de "buscador" y otra con
+        // los datos completos, como en CONTACTOS_COMPLETO_TODOS.xlsx); se coge
+        // la que tenga más filas, que es la que contiene los datos reales.
+        const best = workbook.SheetNames.map((name) => ({
+          name,
+          rows: XLSX.utils.sheet_to_json(workbook.Sheets[name], { header: 1, defval: '', raw: false }),
+        })).reduce((a, b) => (b.rows.length > a.rows.length ? b : a));
+        if (best.rows.length < 2) throw new Error('el archivo no tiene filas de datos');
+        const [header, ...dataRows] = best.rows;
+        runImport(header, dataRows);
+      } catch (e) {
+        alert('No se pudo importar el archivo: ' + e.message);
+      }
+    }, 30);
   };
   reader.readAsArrayBuffer(file);
 }
