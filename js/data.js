@@ -97,7 +97,7 @@ function searchContacts(query) {
 }
 
 function createContact(fieldsObj) {
-  const contact = { id: uid(), fields: cleanPhoneFields(fieldsObj) };
+  const contact = { id: uid(), fields: cleanContactFields(fieldsObj) };
   DATA.contacts.push(contact);
   saveData(DATA);
   return contact;
@@ -106,7 +106,7 @@ function createContact(fieldsObj) {
 function updateContact(id, fieldsObj) {
   const contact = DATA.contacts.find((c) => c.id === id);
   if (!contact) return null;
-  contact.fields = cleanPhoneFields(fieldsObj);
+  contact.fields = cleanContactFields(fieldsObj);
   saveData(DATA);
   return contact;
 }
@@ -183,10 +183,12 @@ function formatPhone(raw) {
 
 // Es habitual que "Teléfono móvil" y "Teléfono fijo" (u otro campo de
 // teléfono) acaben con el mismo número solo porque se escribió con un
-// formato distinto ("612345678" frente a "612 34 56 78"). Al guardar un
-// contacto, si dos campos de teléfono coinciden en el número, se deja solo
-// el primero (normalmente "Teléfono móvil", por ir antes en la lista de
-// campos) con el número bien formateado, y se vacía el resto.
+// formato distinto ("612345678" frente a "612 34 56 78"), o que un mismo
+// campo traiga varios números repetidos entre sí. Al guardar un contacto,
+// cada número se compara (ya separados los que vengan juntos en una celda)
+// contra los de los campos anteriores: el primero que aparece se queda, bien
+// formateado, y cualquier repetición posterior (en el mismo campo o en otro)
+// se descarta. Si a un campo no le queda ningún número propio, desaparece.
 function cleanPhoneFields(fieldsObj) {
   const result = { ...fieldsObj };
   const seen = new Set();
@@ -194,25 +196,56 @@ function cleanPhoneFields(fieldsObj) {
     if (fieldKind(field) !== 'phone') return;
     const raw = result[field.key];
     if (!raw) return;
-    const normalized = normalizePhone(raw);
-    if (!normalized) return;
-    if (seen.has(normalized)) {
-      delete result[field.key];
-    } else {
+    const kept = [];
+    splitMultiValues(raw).forEach((part) => {
+      const normalized = normalizePhone(part);
+      if (!normalized || seen.has(normalized)) return;
       seen.add(normalized);
-      result[field.key] = formatPhone(raw);
-    }
+      kept.push(formatPhone(part.trim()));
+    });
+    if (kept.length === 0) delete result[field.key];
+    else result[field.key] = kept.join(' / ');
   });
   return result;
 }
 
-// Aplica cleanPhoneFields a todos los contactos ya guardados (para
+// Mismo problema pero con correos: es frecuente que un campo "Email" extra
+// (creado al importar una columna que no encajaba con las habituales)
+// repita uno o varios correos que ya están en "Correo electrónico" o
+// "Correo secundario". Se descartan los correos ya vistos en un campo
+// anterior, campo por campo; si a un campo no le queda ninguno propio,
+// desaparece.
+function cleanEmailFields(fieldsObj) {
+  const result = { ...fieldsObj };
+  const seen = new Set();
+  DATA.fields.forEach((field) => {
+    if (fieldKind(field) !== 'email') return;
+    const raw = result[field.key];
+    if (!raw) return;
+    const kept = [];
+    splitMultiValues(raw).forEach((part) => {
+      const normalized = normalizeEmail(part);
+      if (!normalized || seen.has(normalized)) return;
+      seen.add(normalized);
+      kept.push(part.trim());
+    });
+    if (kept.length === 0) delete result[field.key];
+    else result[field.key] = kept.join(' / ');
+  });
+  return result;
+}
+
+function cleanContactFields(fieldsObj) {
+  return cleanEmailFields(cleanPhoneFields(fieldsObj));
+}
+
+// Aplica cleanContactFields a todos los contactos ya guardados (para
 // contactos importados antes de que existiera esta limpieza). Devuelve
 // cuántos contactos cambiaron de verdad.
-function cleanAllContactsPhones() {
+function cleanAllContactsData() {
   let changed = 0;
   DATA.contacts.forEach((c) => {
-    const cleaned = cleanPhoneFields(c.fields);
+    const cleaned = cleanContactFields(c.fields);
     if (JSON.stringify(cleaned) !== JSON.stringify(c.fields)) {
       c.fields = cleaned;
       changed++;

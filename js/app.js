@@ -88,7 +88,7 @@ function renderTodos() {
     ${
       contacts.length > 0
         ? `<div class="search-bar">
-             <button id="clean-phones-btn" class="icon-btn">🧹 Unificar teléfonos duplicados</button>
+             <button id="clean-data-btn" class="icon-btn">🧹 Compilar datos duplicados</button>
              <button id="delete-all-btn" class="delete-btn">✕ Borrar todo</button>
            </div>`
         : ''
@@ -96,16 +96,16 @@ function renderTodos() {
     <div class="section-title">${contacts.length} contacto${contacts.length === 1 ? '' : 's'} en total</div>
     <div id="todos-list" class="contact-list"></div>
   `;
-  const cleanPhonesBtn = document.getElementById('clean-phones-btn');
-  if (cleanPhonesBtn) {
-    cleanPhonesBtn.addEventListener('click', () => {
+  const cleanDataBtn = document.getElementById('clean-data-btn');
+  if (cleanDataBtn) {
+    cleanDataBtn.addEventListener('click', () => {
       if (
         confirm(
-          '¿Unificar los teléfonos duplicados de todos los contactos? Si un contacto tiene el mismo número repetido en varios campos de teléfono (solo con formato distinto), se dejará únicamente en el primero, bien formateado.'
+          '¿Compilar los datos duplicados de todos los contactos? Si un contacto tiene el mismo teléfono o el mismo correo repetido en varios campos (aunque sea con formato distinto), se dejará solo en el primero; el resto de campos redundantes se vaciarán.'
         )
       ) {
-        const changed = cleanAllContactsPhones();
-        showToast(changed > 0 ? `✅ Se actualizaron ${changed} contactos.` : 'No había teléfonos duplicados que unificar.');
+        const changed = cleanAllContactsData();
+        showToast(changed > 0 ? `✅ Se actualizaron ${changed} contactos.` : 'No había datos duplicados que compilar.');
         renderCurrentTab();
       }
     });
