@@ -347,6 +347,7 @@ function renderListas() {
   main.innerHTML = `
     <div class="search-bar">
       <button id="new-list-btn" class="primary-btn">+ Nuevo listado</button>
+      <button id="new-list-from-excel-btn" class="icon-btn">Importar Excel como listado nuevo</button>
     </div>
     <div id="lists-grid" class="lists-grid"></div>
   `;
@@ -355,6 +356,13 @@ function renderListas() {
     if (!name || !name.trim()) return;
     const list = createList(name);
     navigate(`listas/${list.id}`);
+  });
+  document.getElementById('new-list-from-excel-btn').addEventListener('click', () => {
+    const name = prompt('Nombre del nuevo listado a importar (ej. "Invitados Feria 2026"):');
+    if (!name || !name.trim()) return;
+    const list = createList(name);
+    navigate(`listas/${list.id}`);
+    pickExcelFile((file) => handleExcelImport(file, list.id));
   });
   renderListsGrid();
 }
@@ -415,12 +423,14 @@ function renderListDetail(listId) {
     </div>
     <div class="search-bar">
       <button id="add-contacts-btn" class="primary-btn">+ Añadir contactos</button>
+      <button id="import-list-excel-btn" class="icon-btn">Importar Excel a este listado</button>
       <button id="export-list-excel-btn" class="icon-btn">Exportar este listado a Excel</button>
     </div>
     <div id="list-contacts" class="contact-list"></div>
   `;
   document.getElementById('back-btn').addEventListener('click', () => navigate('listas'));
   document.getElementById('add-contacts-btn').addEventListener('click', () => openAddToListModal(listId));
+  document.getElementById('import-list-excel-btn').addEventListener('click', () => pickExcelFile((file) => handleExcelImport(file, listId)));
   document.getElementById('export-list-excel-btn').addEventListener('click', () => exportExcel(listContacts(listId), `listado-${slugify(list.name)}`));
   renderListContactsList(listId);
 }
@@ -492,7 +502,28 @@ function openAddToListModal(listId) {
 
 // ---------- Importar Excel/CSV ----------
 
-function handleExcelImport(file) {
+// Crea un <input type="file"> oculto, lo dispara y limpia solo. Se usa para
+// poder abrir el selector de archivos desde botones que no tienen su propio
+// <input> fijo en el HTML (importar como listado nuevo, importar a un
+// listado existente…).
+function pickExcelFile(onFile) {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.xlsx,.xls,.csv';
+  input.style.display = 'none';
+  input.addEventListener('change', () => {
+    const file = input.files[0];
+    if (file) onFile(file);
+    input.remove();
+  });
+  document.body.appendChild(input);
+  input.click();
+}
+
+// listId (opcional): si se indica, los contactos resultantes (nuevos o
+// unificados) se añaden también a ese listado, además de guardarse en el
+// directorio general.
+function handleExcelImport(file, listId) {
   const reader = new FileReader();
   reader.onload = () => {
     showToast('⏳ Importando y comprobando duplicados…');
@@ -501,7 +532,11 @@ function handleExcelImport(file) {
     setTimeout(() => {
       try {
         const data = new Uint8Array(reader.result);
-        const workbook = XLSX.read(data, { type: 'array' });
+        // codepage 65001 = UTF-8. Sin indicarlo explícitamente, un CSV en UTF-8
+        // sin BOM se interpreta con otra codificación y las tildes/eñes salen
+        // mal ("Organización" -> "OrganizaciÃ³n"). Los .xlsx no se ven
+        // afectados (llevan su propia codificación en el XML interno).
+        const workbook = XLSX.read(data, { type: 'array', codepage: 65001 });
         // Un libro puede traer varias hojas (p.ej. una de "buscador" y otra con
         // los datos completos, como en CONTACTOS_COMPLETO_TODOS.xlsx); se coge
         // la que tenga más filas, que es la que contiene los datos reales.
@@ -511,7 +546,7 @@ function handleExcelImport(file) {
         })).reduce((a, b) => (b.rows.length > a.rows.length ? b : a));
         if (best.rows.length < 2) throw new Error('el archivo no tiene filas de datos');
         const [header, ...dataRows] = best.rows;
-        runImport(header, dataRows);
+        runImport(header, dataRows, listId);
       } catch (e) {
         alert('No se pudo importar el archivo: ' + e.message);
       }
@@ -527,7 +562,7 @@ function handleExcelImport(file) {
 // se crean contactos, así cada fila se comprueba en tiempo prácticamente
 // constante en lugar de recorrer toda la lista por cada una (importa con
 // archivos de cientos de filas).
-function runImport(headerRow, dataRows) {
+function runImport(headerRow, dataRows, listId) {
   const parsedRows = prepareImportRows(headerRow, dataRows);
   const index = buildContactIndex();
   let createdCount = 0;
@@ -538,6 +573,7 @@ function runImport(headerRow, dataRows) {
     if (matches.length === 0) {
       const contact = createContact(fieldsObj);
       indexAddContact(index, contact);
+      if (listId) addContactToList(listId, contact.id);
       createdCount++;
     } else {
       pending.push({ fieldsObj, matches });
@@ -545,15 +581,16 @@ function runImport(headerRow, dataRows) {
   });
 
   renderCurrentTab();
+  const suffix = listId ? ' y añadidos al listado' : '';
   if (pending.length === 0) {
-    showToast(`✅ Se importaron ${createdCount} contactos nuevos.`);
+    showToast(`✅ Se importaron ${createdCount} contactos nuevos${suffix}.`);
   } else {
-    showToast(`✅ ${createdCount} contactos importados. ⚠️ ${pending.length} parecen duplicados, revísalos.`);
-    openImportReviewModal(pending);
+    showToast(`✅ ${createdCount} contactos importados${suffix}. ⚠️ ${pending.length} parecen duplicados, revísalos.`);
+    openImportReviewModal(pending, listId);
   }
 }
 
-function openImportReviewModal(pendingRows) {
+function openImportReviewModal(pendingRows, listId) {
   const overlay = document.getElementById('modal-overlay');
   const rows = pendingRows.map((r, i) => ({ ...r, _id: `imp-${i}` }));
 
@@ -622,6 +659,7 @@ function openImportReviewModal(pendingRows) {
       rows.forEach((r) => {
         const target = r.matches[0].contact;
         updateContact(target.id, { ...target.fields, ...r.fieldsObj });
+        if (listId) addContactToList(listId, target.id);
       });
       rows.length = 0;
       closeModal();
@@ -630,7 +668,10 @@ function openImportReviewModal(pendingRows) {
     });
     document.getElementById('import-all-rest').addEventListener('click', () => {
       const n = rows.length;
-      rows.forEach((r) => createContact(r.fieldsObj));
+      rows.forEach((r) => {
+        const c = createContact(r.fieldsObj);
+        if (listId) addContactToList(listId, c.id);
+      });
       rows.length = 0;
       closeModal();
       renderCurrentTab();
@@ -651,12 +692,14 @@ function openImportReviewModal(pendingRows) {
           const target = getContact(btn.dataset.target);
           const merged = { ...target.fields, ...row.fieldsObj };
           updateContact(target.id, merged);
+          if (listId) addContactToList(listId, target.id);
           showToast(`Unificado con "${contactDisplayName(target)}".`);
           removeRow(rowId);
         });
       });
       card.querySelector('.row-import-btn').addEventListener('click', () => {
-        createContact(row.fieldsObj);
+        const c = createContact(row.fieldsObj);
+        if (listId) addContactToList(listId, c.id);
         showToast('Importado como nuevo contacto.');
         removeRow(rowId);
       });
