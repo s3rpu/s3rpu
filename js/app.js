@@ -247,8 +247,8 @@ function openContactModal(contact, prefillValues) {
     </div>`;
   overlay.hidden = false;
 
-  document.getElementById('add-field-btn').addEventListener('click', () => {
-    const label = prompt('Nombre del nuevo campo (ej. "Fax", "Horario"):');
+  document.getElementById('add-field-btn').addEventListener('click', async () => {
+    const label = await showPromptModal({ title: 'Nuevo campo', message: 'Nombre del nuevo campo (ej. "Fax", "Horario"):' });
     if (!label || !label.trim()) return;
     const field = ensureField(label);
     document.getElementById('contact-fields-wrap').insertAdjacentHTML('beforeend', contactFieldRowHtml(field, ''));
@@ -340,6 +340,54 @@ function closeModal() {
   overlay.innerHTML = '';
 }
 
+// ---------- Diálogo de texto (sustituye a prompt()) ----------
+// Electron no soporta window.prompt() (a diferencia de alert()/confirm(),
+// que sí funcionan): el diálogo nativo simplemente no aparece y la llamada
+// devuelve null al instante, como si el usuario hubiese cancelado. Se usa un
+// overlay propio, independiente de #modal-overlay, para poder mostrarse
+// también por encima de otro modal ya abierto (p. ej. "+ Añadir campo"
+// dentro del formulario de contacto).
+function showPromptModal({ title, message, defaultValue = '', confirmLabel = 'Aceptar' }) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('prompt-overlay');
+    overlay.innerHTML = `
+      <div class="modal card">
+        <h3>${escapeHtml(title)}</h3>
+        <form id="prompt-form" class="contact-form">
+          ${message ? `<p class="dup-intro">${escapeHtml(message)}</p>` : ''}
+          <input type="text" id="prompt-input" class="modal-search" />
+          <div class="modal-actions">
+            <button type="button" id="prompt-cancel-btn" class="icon-btn">Cancelar</button>
+            <button type="submit" class="primary-btn">${escapeHtml(confirmLabel)}</button>
+          </div>
+        </form>
+      </div>`;
+    overlay.hidden = false;
+    const input = document.getElementById('prompt-input');
+    input.value = defaultValue;
+    input.focus();
+    input.select();
+
+    let resolved = false;
+    const finish = (value) => {
+      if (resolved) return;
+      resolved = true;
+      overlay.hidden = true;
+      overlay.innerHTML = '';
+      resolve(value);
+    };
+
+    document.getElementById('prompt-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      finish(input.value);
+    });
+    document.getElementById('prompt-cancel-btn').addEventListener('click', () => finish(null));
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) finish(null);
+    });
+  });
+}
+
 // ---------- Pestaña Listados ----------
 
 function renderListas() {
@@ -351,14 +399,14 @@ function renderListas() {
     </div>
     <div id="lists-grid" class="lists-grid"></div>
   `;
-  document.getElementById('new-list-btn').addEventListener('click', () => {
-    const name = prompt('Nombre del nuevo listado (ej. "Navidad 2026", "Colegios"):');
+  document.getElementById('new-list-btn').addEventListener('click', async () => {
+    const name = await showPromptModal({ title: 'Nuevo listado', message: 'Nombre del nuevo listado (ej. "Navidad 2026", "Colegios"):' });
     if (!name || !name.trim()) return;
     const list = createList(name);
     navigate(`listas/${list.id}`);
   });
-  document.getElementById('new-list-from-excel-btn').addEventListener('click', () => {
-    const name = prompt('Nombre del nuevo listado a importar (ej. "Invitados Feria 2026"):');
+  document.getElementById('new-list-from-excel-btn').addEventListener('click', async () => {
+    const name = await showPromptModal({ title: 'Importar Excel como listado nuevo', message: 'Nombre del nuevo listado a importar (ej. "Invitados Feria 2026"):' });
     if (!name || !name.trim()) return;
     const list = createList(name);
     navigate(`listas/${list.id}`);
@@ -392,9 +440,9 @@ function renderListsGrid() {
   grid.querySelectorAll('.list-card').forEach((card) => {
     const id = card.dataset.id;
     card.querySelector('[data-action="ver"]').addEventListener('click', () => navigate(`listas/${id}`));
-    card.querySelector('[data-action="renombrar"]').addEventListener('click', () => {
+    card.querySelector('[data-action="renombrar"]').addEventListener('click', async () => {
       const list = DATA.lists.find((l) => l.id === id);
-      const name = prompt('Nuevo nombre del listado:', list.name);
+      const name = await showPromptModal({ title: 'Renombrar listado', defaultValue: list.name, confirmLabel: 'Renombrar' });
       if (!name || !name.trim()) return;
       renameList(id, name);
       renderListsGrid();
