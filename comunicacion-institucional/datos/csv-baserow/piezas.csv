@@ -1,0 +1,2 @@
+﻿identificador,canal,contenido,estado,fragmento_fuente,aviso_validacion,validacion_ok,aprobado_por,aprobado_en,modelo
+BORRAR — ejemplo,nota_prensa,"Texto de la pieza generada, editable por el gabinete.",borrador,Fragmento del documento que respalda la pieza.,,true,,,claude-opus-5

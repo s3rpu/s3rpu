@@ -1,0 +1,478 @@
+<title>Cómo funciona — Comunicación institucional</title>
+<style>
+  /* Paleta: tinta documental fría, azul marisma como acento.
+     Semánticos (verde/ámbar) separados del acento. */
+  :root {
+    --fondo:        #f5f7f8;
+    --superficie:   #ffffff;
+    --superficie-2: #edf0f2;
+    --tinta:        #16202a;
+    --tinta-suave:  #59656f;
+    --linea:        #dbe0e4;
+    --acento:       #1c5a80;
+    --acento-tenue: #e6eef4;
+    --ok:           #2c6a43;
+    --ok-fondo:     #e6f0ea;
+    --aviso:        #8a5410;
+    --aviso-fondo:  #faf0e1;
+    --codigo-bg:    #111a21;
+    --codigo-fg:    #d6e0e7;
+    --codigo-tenue: #7d8f9c;
+    --sombra:       0 1px 2px rgba(22,32,42,.06), 0 6px 18px rgba(22,32,42,.05);
+
+    --display: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    --texto:   Georgia, "Iowan Old Style", "Times New Roman", serif;
+    --mono:    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --fondo:        #0f151a;
+      --superficie:   #151d24;
+      --superficie-2: #1c262e;
+      --tinta:        #e5ebef;
+      --tinta-suave:  #94a1ab;
+      --linea:        #29343d;
+      --acento:       #74b4dc;
+      --acento-tenue: #152e3d;
+      --ok:           #7cc298;
+      --ok-fondo:     #15261d;
+      --aviso:        #e0b169;
+      --aviso-fondo:  #2a1f12;
+      --codigo-bg:    #0a1015;
+      --codigo-fg:    #cdd7de;
+      --codigo-tenue: #6d7d89;
+      --sombra:       0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"] {
+    --fondo:        #0f151a;
+    --superficie:   #151d24;
+    --superficie-2: #1c262e;
+    --tinta:        #e5ebef;
+    --tinta-suave:  #94a1ab;
+    --linea:        #29343d;
+    --acento:       #74b4dc;
+    --acento-tenue: #152e3d;
+    --ok:           #7cc298;
+    --ok-fondo:     #15261d;
+    --aviso:        #e0b169;
+    --aviso-fondo:  #2a1f12;
+    --codigo-bg:    #0a1015;
+    --codigo-fg:    #cdd7de;
+    --codigo-tenue: #6d7d89;
+    --sombra:       0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.3);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--fondo);
+    color: var(--tinta);
+    font-family: var(--texto);
+    font-size: 17px;
+    line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .envoltorio {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 3.5rem 1.25rem 5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+  }
+
+  /* ---------- cabecera ---------- */
+  header { display: flex; flex-direction: column; gap: .9rem; }
+  .eyebrow {
+    font-family: var(--display);
+    font-size: .72rem;
+    font-weight: 650;
+    letter-spacing: .13em;
+    text-transform: uppercase;
+    color: var(--acento);
+  }
+  h1 {
+    font-family: var(--display);
+    font-size: clamp(1.9rem, 5vw, 2.6rem);
+    font-weight: 700;
+    letter-spacing: -.022em;
+    line-height: 1.12;
+    text-wrap: balance;
+    margin: 0;
+  }
+  .entradilla {
+    margin: 0;
+    font-size: 1.13rem;
+    color: var(--tinta-suave);
+    max-width: 40rem;
+  }
+
+  /* ---------- aviso de alcance ---------- */
+  .nota-alcance {
+    background: var(--acento-tenue);
+    border-left: 3px solid var(--acento);
+    border-radius: 0 6px 6px 0;
+    padding: 1.1rem 1.3rem;
+    font-size: .97rem;
+  }
+  .nota-alcance p { margin: 0; }
+  .nota-alcance p + p { margin-top: .6rem; }
+  .nota-alcance strong { color: var(--tinta); }
+
+  /* ---------- pasos ---------- */
+  section { display: flex; flex-direction: column; gap: 1rem; }
+  .paso {
+    display: flex;
+    align-items: baseline;
+    gap: .7rem;
+    font-family: var(--display);
+    font-size: .74rem;
+    font-weight: 650;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--tinta-suave);
+    border-top: 1px solid var(--linea);
+    padding-top: .85rem;
+  }
+  .paso .num {
+    font-variant-numeric: tabular-nums;
+    color: var(--acento);
+  }
+  h2 {
+    font-family: var(--display);
+    font-size: 1.42rem;
+    font-weight: 650;
+    letter-spacing: -.015em;
+    line-height: 1.25;
+    text-wrap: balance;
+    margin: 0;
+  }
+  section > p { margin: 0; }
+  section > p + p { margin-top: -.25rem; }
+
+  /* ---------- documentos ---------- */
+  .documento {
+    background: var(--superficie);
+    border: 1px solid var(--linea);
+    border-radius: 8px;
+    box-shadow: var(--sombra);
+    overflow: hidden;
+  }
+  .documento .barra {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: .5rem;
+    background: var(--superficie-2);
+    border-bottom: 1px solid var(--linea);
+    padding: .55rem .95rem;
+    font-family: var(--display);
+    font-size: .74rem;
+    font-weight: 600;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--tinta-suave);
+  }
+  .documento .cuerpo { padding: 1.35rem 1.5rem; }
+  .documento .cuerpo > * { margin: 0; }
+  .documento .cuerpo > * + * { margin-top: .85rem; }
+
+  .titular {
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 1.02rem;
+    letter-spacing: .005em;
+    line-height: 1.35;
+    text-wrap: balance;
+  }
+  .subtitulo {
+    font-style: italic;
+    color: var(--tinta-suave);
+    line-height: 1.5;
+  }
+  .fecha-linea { color: var(--tinta-suave); font-size: .95rem; }
+
+  .hueco {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: .86rem;
+    background: var(--aviso-fondo);
+    color: var(--aviso);
+    border: 1px dashed var(--aviso);
+    border-radius: 5px;
+    padding: .3rem .55rem;
+  }
+
+  .datos-brutos {
+    font-family: var(--mono);
+    font-size: .88rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+  }
+
+  /* ---------- terminal ---------- */
+  .terminal {
+    background: var(--codigo-bg);
+    color: var(--codigo-fg);
+    border-radius: 8px;
+    padding: 1.05rem 1.2rem;
+    font-family: var(--mono);
+    font-size: .84rem;
+    line-height: 1.62;
+    overflow-x: auto;
+    white-space: pre;
+    border: 1px solid var(--linea);
+  }
+  .terminal .rot { color: var(--codigo-tenue); }
+  .terminal .bien { color: #7cc298; }
+  .terminal .mal  { color: #e8a25f; }
+
+  /* ---------- pastillas ---------- */
+  .pastilla {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    font-family: var(--display);
+    font-size: .72rem;
+    font-weight: 650;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: .22rem .6rem;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .pastilla.ok    { background: var(--ok-fondo);    color: var(--ok); }
+  .pastilla.warn  { background: var(--aviso-fondo); color: var(--aviso); }
+  .pastilla .punto { width: .45rem; height: .45rem; border-radius: 50%; background: currentColor; }
+
+  /* ---------- métricas de redes ---------- */
+  .medida {
+    font-family: var(--display);
+    font-size: .74rem;
+    font-weight: 600;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--tinta-suave);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- cierre ---------- */
+  .cierre {
+    background: var(--superficie);
+    border: 1px solid var(--linea);
+    border-radius: 8px;
+    padding: 1.4rem 1.55rem;
+  }
+  .cierre h2 { font-size: 1.2rem; margin-bottom: .9rem; }
+  .cierre ul { margin: 0; padding-left: 1.15rem; display: flex; flex-direction: column; gap: .6rem; }
+  .cierre li::marker { color: var(--acento); }
+
+  footer {
+    border-top: 1px solid var(--linea);
+    padding-top: 1.2rem;
+    font-family: var(--display);
+    font-size: .84rem;
+    color: var(--tinta-suave);
+  }
+
+  @media (max-width: 560px) {
+    body { font-size: 16px; }
+    .envoltorio { padding: 2.5rem 1rem 3.5rem; gap: 2.4rem; }
+    .documento .cuerpo { padding: 1.1rem 1.15rem; }
+  }
+</style>
+
+<div class="envoltorio">
+
+  <header>
+    <div class="eyebrow">Ayuntamiento de Sanlúcar de Barrameda · Prueba de concepto</div>
+    <h1>De un dato suelto a la nota, los tres posts y la aprobación</h1>
+    <p class="entradilla">
+      El recorrido completo de una pieza, con un caso real: los datos del paro de julio.
+      Se usa este caso porque está lleno de cifras, que es donde más se juega el sistema.
+    </p>
+  </header>
+
+  <div class="nota-alcance">
+    <p><strong>Qué es real y qué no.</strong> Los textos que verás generados los he escrito
+    yo siguiendo los prompts del sistema: n8n y Baserow todavía no están levantados, así que
+    no ha habido máquina que los produjera.</p>
+    <p>Lo que sí es ejecución real es <strong>la validación de cifras</strong>: los bloques
+    negros son la salida literal del programa corriendo sobre estos textos.</p>
+  </div>
+
+  <section>
+    <div class="paso"><span class="num">01</span><span>Entrada</span></div>
+    <h2>Llega el dato en bruto</h2>
+    <p>Lo que recibe el gabinete. En este caso, la nota del SEPE con los datos de paro.
+    Se sube al panel y ya está: eso es todo lo que hace la persona.</p>
+
+    <div class="documento">
+      <div class="barra"><span>Fuente · datos del SEPE</span><span>10 agosto 2026</span></div>
+      <div class="cuerpo">
+        <div class="datos-brutos">Paro registrado. Julio 2026. Sanlúcar de Barrameda.
+Fuente: Servicio Público de Empleo Estatal (SEPE), datos publicados hoy.
+
+- Julio 2026: 5.243 personas desempleadas
+- Junio 2026: 5.434 personas desempleadas
+- Variación mensual: -191 personas (-3,51%)
+- Es el dato más bajo de toda la serie histórica; supera el anterior
+  mínimo, que era el del mes pasado
+- Inicio del mandato (mediados de 2023): 7.504 personas desempleadas
+- Reducción acumulada desde entonces: 2.261 personas, más del 30%</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="paso"><span class="num">02</span><span>Generación</span></div>
+    <h2>La nota de prensa, con vuestro formato</h2>
+    <p>Titular en mayúsculas sin punto final, subtítulo, cuerpo denso en datos y línea de
+    fecha. La estructura no me la he inventado: está medida sobre vuestras cinco notas.</p>
+
+    <div class="documento">
+      <div class="barra">
+        <span>Pieza · nota de prensa</span>
+        <span class="pastilla warn"><span class="punto"></span>Borrador</span>
+      </div>
+      <div class="cuerpo">
+        <p class="titular">EL PARO BAJA EN SANLÚCAR EN 191 PERSONAS Y MARCA EL MÍNIMO DE TODA LA SERIE HISTÓRICA</p>
+        <p class="subtitulo">El desempleo se sitúa en 5.243 personas en julio, la cifra más baja registrada en la ciudad desde que existen datos</p>
+        <p>El número de personas desempleadas en Sanlúcar se ha situado en 5.243 en el mes de
+        julio, según los datos de paro registrado hechos públicos hoy por el Servicio Público
+        de Empleo Estatal (SEPE). Se trata de la cifra más baja de toda la serie histórica en
+        la ciudad.</p>
+        <p>En la comparativa mensual, el desempleo ha pasado de 5.434 personas en junio a 5.243
+        en julio, lo que supone 191 parados menos y un descenso del 3,51% respecto al mes
+        anterior. El dato supera el anterior mínimo histórico, que se había alcanzado el mes
+        pasado.</p>
+        <p>La evolución confirma la tendencia a la baja iniciada a mediados de 2023, cuando
+        comenzó el actual mandato municipal con 7.504 personas en situación de desempleo. Desde
+        entonces, el paro se ha reducido en 2.261 personas, lo que representa una caída
+        superior al 30%.</p>
+        <p><span class="hueco">[DECLARACIÓN PENDIENTE — alcaldesa Carmen Álvarez]</span></p>
+        <p class="fecha-linea">Sanlúcar, a 10 de agosto de 2026</p>
+      </div>
+    </div>
+
+    <p><strong>Fíjate en el recuadro naranja.</strong> Cuatro de vuestras cinco notas llevan
+    declaración de la alcaldesa o del delegado. El sistema deja el hueco en su sitio y con el
+    cargo correcto, pero <strong>no escribe nunca la cita</strong>. Rellenarlo son diez
+    segundos; desmentir una declaración que nadie pronunció, una semana.</p>
+  </section>
+
+  <section>
+    <div class="paso"><span class="num">03</span><span>Control</span></div>
+    <h2>Se comprueba cada cifra contra la fuente</h2>
+    <p>Antes de que la nota llegue a nadie, el sistema busca todos los números del texto y
+    verifica que están en el documento de origen.</p>
+
+    <div class="terminal"><span class="rot">=== VALIDACIÓN DE LA NOTA GENERADA ===</span>
+validacion_ok: <span class="bien">true</span>  |  avisos: 0
+<span class="rot">(sin avisos: todas las cifras están en la fuente)</span></div>
+
+    <p>Ahora la misma nota, con dos cifras cambiadas a mano para ver saltar el aviso:</p>
+
+    <div class="terminal"><span class="rot">=== MISMA NOTA CON DOS CIFRAS ALTERADAS ===</span>
+validacion_ok: <span class="mal">false</span>  |  avisos: 2
+
+Cifras que NO aparecen en el documento fuente — comprobar antes de aprobar:
+  <span class="mal">•</span> 5.143  →  «…se ha situado en <span class="mal">5.143</span> en el mes de julio, según…»
+  <span class="mal">•</span> 171    →  «…lo que supone <span class="mal">171</span> parados menos y un descenso…»</div>
+
+    <p>Detecta las dos y te dice dónde están. Y lo que más importa: <strong>ni un solo aviso
+    falso</strong> sobre las otras siete cifras de la nota. Un validador que avisa de todo es
+    un validador que nadie lee.</p>
+  </section>
+
+  <section>
+    <div class="paso"><span class="num">04</span><span>Adaptación</span></div>
+    <h2>Las tres piezas de redes</h2>
+    <p>Salen de la nota ya generada, no de los datos brutos: así las tres cuentan lo mismo y
+    basta con comprobar una vez que el hecho es correcto.</p>
+
+    <div class="documento">
+      <div class="barra"><span>X</span><span class="medida">205 / 270 caracteres</span></div>
+      <div class="cuerpo">
+        <p>El paro baja en Sanlúcar en 191 personas durante julio y se sitúa en 5.243
+        desempleados, la cifra más baja de toda la serie histórica. Desde 2023 el desempleo se
+        ha reducido en 2.261 personas en la ciudad.</p>
+      </div>
+    </div>
+
+    <div class="documento">
+      <div class="barra"><span>Facebook</span><span class="medida">74 palabras</span></div>
+      <div class="cuerpo">
+        <p>Sanlúcar cierra julio con 5.243 personas desempleadas, la cifra más baja registrada
+        desde que existen datos. En un solo mes el paro ha bajado en 191 personas, un 3,51%
+        menos que en junio.</p>
+        <p>La tendencia viene de lejos: desde mediados de 2023, cuando comenzó el actual
+        mandato municipal, el desempleo en la ciudad se ha reducido en 2.261 personas, una
+        caída superior al 30%.</p>
+        <p>Datos del Servicio Público de Empleo Estatal (SEPE) publicados hoy.</p>
+      </div>
+    </div>
+
+    <div class="documento">
+      <div class="barra"><span>Instagram · pie de imagen</span><span class="medida">38 palabras</span></div>
+      <div class="cuerpo">
+        <p>Sanlúcar marca su mínimo histórico de paro: 5.243 personas desempleadas en julio,
+        191 menos que en junio.</p>
+        <p>Desde 2023 el desempleo en la ciudad ha bajado en 2.261 personas, más de un 30%.</p>
+        <p>Datos del SEPE publicados hoy.</p>
+      </div>
+    </div>
+
+    <div class="terminal"><span class="rot">=== COMPROBACIÓN DE LAS PIEZAS DE REDES ===</span>
+X          205 caracteres (límite 270) → <span class="bien">OK</span>       cifras: <span class="bien">todas verificadas</span>
+FACEBOOK   74 palabras                            cifras: <span class="bien">todas verificadas</span>
+INSTAGRAM  38 palabras                            cifras: <span class="bien">todas verificadas</span></div>
+
+    <p>Las tres van sin hashtags porque vuestras notas no los usan. Dime los de X e Instagram
+    y aparecen solos a partir de entonces.</p>
+  </section>
+
+  <section>
+    <div class="paso"><span class="num">05</span><span>Aprobación</span></div>
+    <h2>Nada sale sin que alguien diga que sí</h2>
+    <p>Las cuatro piezas aparecen en el panel en estado <em>borrador</em>, con el texto
+    editable y el documento de origen al lado. El gabinete rellena la declaración, retoca lo
+    que quiera y cambia el estado.</p>
+
+    <div class="documento">
+      <div class="barra">
+        <span>Pieza · nota de prensa</span>
+        <span class="pastilla ok"><span class="punto"></span>Aprobado</span>
+      </div>
+      <div class="cuerpo">
+        <p class="fecha-linea">Aprobado por Carmen Ruiz · 10 de agosto de 2026, 09:42 ·
+        queda registrado quién y cuándo</p>
+      </div>
+    </div>
+
+    <p>Ese cambio de estado es lo que habilita el envío a la lista de prensa. Sin él no sale
+    nada, y el registro de quién aprobó qué es la pregunta que en una institución pública se
+    acaba haciendo.</p>
+  </section>
+
+  <div class="cierre">
+    <h2>Lo que esta demostración no demuestra</h2>
+    <ul>
+      <li><strong>Que el modelo escriba así de bien con vuestro material.</strong> Estos textos
+      los he escrito yo siguiendo los prompts. Que la máquina los reproduzca con esta fidelidad
+      es lo que hay que comprobar el primer día — y es justo para lo que sirven vuestras cinco
+      notas cargadas como ejemplos.</li>
+      <li><strong>La lectura de un acta de pleno</strong>, que es el paso más frágil de todo el
+      sistema. Para eso necesito el acta.</li>
+      <li><strong>Cuánto tarda y cuánto cuesta cada nota.</strong> Eso sólo sale ejecutándolo
+      de verdad.</li>
+    </ul>
+  </div>
+
+  <footer>Prueba de concepto · agosto de 2026</footer>
+
+</div>

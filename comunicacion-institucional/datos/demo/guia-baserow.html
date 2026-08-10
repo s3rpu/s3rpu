@@ -1,0 +1,299 @@
+<title>Montar el panel en Baserow — paso a paso</title>
+<style>
+  :root {
+    --fondo:        #f5f7f8;
+    --superficie:   #ffffff;
+    --superficie-2: #edf0f2;
+    --tinta:        #16202a;
+    --tinta-suave:  #59656f;
+    --linea:        #dbe0e4;
+    --acento:       #1c5a80;
+    --acento-tenue: #e6eef4;
+    --ok:           #2c6a43;
+    --ok-fondo:     #e6f0ea;
+    --aviso:        #8a5410;
+    --aviso-fondo:  #faf0e1;
+    --sombra:       0 1px 2px rgba(22,32,42,.06), 0 6px 18px rgba(22,32,42,.05);
+    --display: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+    --texto:   Georgia, "Iowan Old Style", "Times New Roman", serif;
+    --mono:    ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --fondo: #0f151a; --superficie: #151d24; --superficie-2: #1c262e;
+      --tinta: #e5ebef; --tinta-suave: #94a1ab; --linea: #29343d;
+      --acento: #74b4dc; --acento-tenue: #152e3d;
+      --ok: #7cc298; --ok-fondo: #15261d;
+      --aviso: #e0b169; --aviso-fondo: #2a1f12;
+      --sombra: 0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.3);
+    }
+  }
+  :root[data-theme="dark"] {
+    --fondo: #0f151a; --superficie: #151d24; --superficie-2: #1c262e;
+    --tinta: #e5ebef; --tinta-suave: #94a1ab; --linea: #29343d;
+    --acento: #74b4dc; --acento-tenue: #152e3d;
+    --ok: #7cc298; --ok-fondo: #15261d;
+    --aviso: #e0b169; --aviso-fondo: #2a1f12;
+    --sombra: 0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.3);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--fondo); color: var(--tinta);
+    font-family: var(--texto); font-size: 17px; line-height: 1.65;
+    -webkit-font-smoothing: antialiased;
+  }
+  .envoltorio {
+    max-width: 44rem; margin: 0 auto; padding: 3.5rem 1.25rem 5rem;
+    display: flex; flex-direction: column; gap: 2.6rem;
+  }
+
+  .eyebrow {
+    font-family: var(--display); font-size: .72rem; font-weight: 650;
+    letter-spacing: .13em; text-transform: uppercase; color: var(--acento);
+  }
+  h1 {
+    font-family: var(--display); font-size: clamp(1.8rem, 5vw, 2.4rem);
+    font-weight: 700; letter-spacing: -.022em; line-height: 1.14;
+    text-wrap: balance; margin: .5rem 0 0;
+  }
+  .entradilla { margin: .8rem 0 0; font-size: 1.1rem; color: var(--tinta-suave); }
+
+  .nota {
+    background: var(--acento-tenue); border-left: 3px solid var(--acento);
+    border-radius: 0 6px 6px 0; padding: 1rem 1.25rem; font-size: .97rem;
+  }
+  .nota p { margin: 0; }
+  .nota p + p { margin-top: .55rem; }
+
+  .bloque { display: flex; flex-direction: column; gap: .9rem; }
+  .rotulo {
+    display: flex; align-items: baseline; gap: .7rem;
+    font-family: var(--display); font-size: .74rem; font-weight: 650;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--tinta-suave);
+    border-top: 1px solid var(--linea); padding-top: .8rem;
+  }
+  .rotulo .letra { color: var(--acento); }
+  h2 {
+    font-family: var(--display); font-size: 1.35rem; font-weight: 650;
+    letter-spacing: -.015em; line-height: 1.25; text-wrap: balance; margin: 0;
+  }
+  .bloque p { margin: 0; }
+  .bloque p + p { margin-top: -.2rem; }
+
+  ol.pasos { margin: 0; padding-left: 1.35rem; display: flex; flex-direction: column; gap: .75rem; }
+  ol.pasos li::marker { font-family: var(--display); font-weight: 650; color: var(--acento); }
+  ul.simple { margin: 0; padding-left: 1.2rem; display: flex; flex-direction: column; gap: .45rem; }
+  ul.simple li::marker { color: var(--acento); }
+
+  code {
+    font-family: var(--mono); font-size: .87em;
+    background: var(--superficie-2); border: 1px solid var(--linea);
+    border-radius: 4px; padding: .1rem .35rem;
+  }
+  .fichero {
+    font-family: var(--mono); font-size: .88em; font-weight: 600;
+    color: var(--acento);
+  }
+
+  .tabla-envoltorio { overflow-x: auto; border: 1px solid var(--linea); border-radius: 8px; background: var(--superficie); box-shadow: var(--sombra); }
+  table { border-collapse: collapse; width: 100%; font-size: .92rem; }
+  thead th {
+    font-family: var(--display); font-size: .7rem; font-weight: 650;
+    letter-spacing: .09em; text-transform: uppercase; color: var(--tinta-suave);
+    text-align: left; padding: .7rem .9rem; background: var(--superficie-2);
+    border-bottom: 1px solid var(--linea); white-space: nowrap;
+  }
+  tbody td { padding: .6rem .9rem; border-bottom: 1px solid var(--linea); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.campo { font-family: var(--mono); font-size: .85rem; white-space: nowrap; }
+  td.tipo { font-family: var(--display); font-size: .82rem; font-weight: 600; white-space: nowrap; }
+
+  .aviso-caja {
+    background: var(--aviso-fondo); border-left: 3px solid var(--aviso);
+    border-radius: 0 6px 6px 0; padding: 1rem 1.25rem; font-size: .97rem;
+  }
+  .aviso-caja p { margin: 0; }
+  .aviso-caja p + p { margin-top: .55rem; }
+
+  .final {
+    background: var(--ok-fondo); border-radius: 8px; padding: 1.3rem 1.5rem;
+  }
+  .final h2 { color: var(--ok); font-size: 1.15rem; margin-bottom: .7rem; }
+  .final p { margin: 0; }
+
+  footer {
+    border-top: 1px solid var(--linea); padding-top: 1.1rem;
+    font-family: var(--display); font-size: .84rem; color: var(--tinta-suave);
+  }
+  @media (max-width: 560px) {
+    body { font-size: 16px; }
+    .envoltorio { padding: 2.5rem 1rem 3.5rem; gap: 2.1rem; }
+  }
+</style>
+
+<div class="envoltorio">
+
+  <header>
+    <div class="eyebrow">Puesta en marcha · Parte 1 de 2</div>
+    <h1>Montar el panel en Baserow</h1>
+    <p class="entradilla">
+      Unos 30 minutos, todo con el ratón. Al terminar tendrás el panel donde el gabinete
+      revisará y aprobará el contenido, con vuestro estilo ya cargado.
+    </p>
+  </header>
+
+  <div class="nota">
+    <p><strong>Baserow es una hoja de cálculo online</strong>, parecida a Excel o a Airtable.
+    Aquí hace de dos cosas: guarda los datos y sirve de pantalla donde el gabinete lee, edita
+    y aprueba.</p>
+    <p>No hay que instalar nada ni escribir ninguna orden. Te he preparado las tablas como
+    ficheros que sólo tienes que subir.</p>
+  </div>
+
+  <div class="bloque">
+    <div class="rotulo"><span class="letra">A</span><span>Cuenta</span></div>
+    <h2>Date de alta</h2>
+    <ol class="pasos">
+      <li>Entra en <strong>baserow.io</strong> y crea una cuenta gratuita.</li>
+      <li>Cuando te pregunte por la región o el centro de datos, <strong>elige Europa</strong>.
+      Es lo que sostiene el argumento de que los datos del Ayuntamiento no salen de la UE.</li>
+      <li>Al entrar verás un espacio de trabajo. Renómbralo a
+      <strong>Sanlúcar de Barrameda</strong>.</li>
+    </ol>
+  </div>
+
+  <div class="bloque">
+    <div class="rotulo"><span class="letra">B</span><span>Base</span></div>
+    <h2>Crea la base de datos</h2>
+    <ol class="pasos">
+      <li>Dentro del espacio de trabajo, pulsa <strong>Crear base de datos</strong>
+      (<em>Create database</em>).</li>
+      <li>Llámala <strong>Comunicación institucional</strong>.</li>
+      <li>Si viene con una tabla de ejemplo, bórrala: vas a crear las tuyas subiendo ficheros.</li>
+    </ol>
+  </div>
+
+  <div class="bloque">
+    <div class="rotulo"><span class="letra">C</span><span>Tablas</span></div>
+    <h2>Sube los siete ficheros</h2>
+    <p>Te los he pasado en el chat. Cada uno crea una tabla con todas sus columnas ya puestas.</p>
+    <ol class="pasos">
+      <li>Pulsa <strong>Crear tabla</strong> (<em>New table</em>) y elige
+      <strong>Importar un fichero</strong> → <strong>CSV</strong>.</li>
+      <li>Sube el fichero y marca la casilla de que <strong>la primera fila son los
+      nombres de las columnas</strong>.</li>
+      <li>Ponle a la tabla <strong>exactamente el mismo nombre que el fichero</strong>, sin
+      el <code>.csv</code>. Esto importa: los flujos automáticos buscan las tablas por su
+      nombre.</li>
+      <li>Repite con los siete.</li>
+    </ol>
+
+    <div class="tabla-envoltorio">
+      <table>
+        <thead>
+          <tr><th>Fichero</th><th>Tabla</th><th>Para qué sirve</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="campo">config.csv</td><td class="campo">config</td><td>Vuestro estilo: cómo se nombra a la institución y a los cargos, tono, longitudes. <strong>Ya viene relleno.</strong></td></tr>
+          <tr><td class="campo">ejemplos.csv</td><td class="campo">ejemplos</td><td>Vuestras cinco notas reales. Es lo que hace que lo generado suene a vosotros.</td></tr>
+          <tr><td class="campo">fuentes.csv</td><td class="campo">fuentes</td><td>Lo que entra: actas, notas en bruto, datos sueltos.</td></tr>
+          <tr><td class="campo">puntos.csv</td><td class="campo">puntos</td><td>Los acuerdos extraídos de un acta, para marcar cuáles son noticiables.</td></tr>
+          <tr><td class="campo">piezas.csv</td><td class="campo">piezas</td><td>El contenido generado. Aquí es donde se revisa y se aprueba.</td></tr>
+          <tr><td class="campo">contactos.csv</td><td class="campo">contactos</td><td>Prensa, vecinos, asociaciones, con su base legal.</td></tr>
+          <tr><td class="campo">envios.csv</td><td class="campo">envios</td><td>Registro de lo enviado.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="aviso-caja">
+      <p><strong>Después de subirlos, borra las filas que empiezan por «BORRAR».</strong>
+      Están sólo para que Baserow acierte con el tipo de cada columna al importar.</p>
+      <p>Las dos tablas que <em>sí</em> conservan su contenido son <code>config</code> y
+      <code>ejemplos</code>: eso es vuestro estilo real y se queda.</p>
+    </div>
+  </div>
+
+  <div class="bloque">
+    <div class="rotulo"><span class="letra">D</span><span>Ajustes</span></div>
+    <h2>Crea seis columnas que el fichero no puede traer</h2>
+    <p>Son las que conectan unas tablas con otras y la de subir el PDF. Para cada una: pulsa
+    el <strong>+</strong> al final de las columnas de esa tabla, ponle el nombre exacto y
+    elige el tipo.</p>
+
+    <div class="tabla-envoltorio">
+      <table>
+        <thead>
+          <tr><th>Tabla</th><th>Columna nueva</th><th>Tipo a elegir</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="campo">fuentes</td><td class="campo">fichero</td><td class="tipo">Archivo (<em>File</em>)</td></tr>
+          <tr><td class="campo">fuentes</td><td class="campo">creado_en</td><td class="tipo">Fecha de creación</td></tr>
+          <tr><td class="campo">puntos</td><td class="campo">fuente</td><td class="tipo">Enlace a <strong>fuentes</strong></td></tr>
+          <tr><td class="campo">piezas</td><td class="campo">punto</td><td class="tipo">Enlace a <strong>puntos</strong></td></tr>
+          <tr><td class="campo">piezas</td><td class="campo">creado_en</td><td class="tipo">Fecha de creación</td></tr>
+          <tr><td class="campo">envios</td><td class="campo">pieza</td><td class="tipo">Enlace a <strong>piezas</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="bloque">
+    <div class="rotulo"><span class="letra">E</span><span>Repaso</span></div>
+    <h2>Comprueba que estas columnas tienen el tipo correcto</h2>
+    <p>Al importar, Baserow adivina el tipo de cada columna y a veces se queda en «texto».
+    Repasa sólo estas; si alguna está como texto, pulsa en su cabecera → <strong>Editar
+    campo</strong> y cámbiala.</p>
+
+    <div class="tabla-envoltorio">
+      <table>
+        <thead>
+          <tr><th>Columna</th><th>Debe ser</th><th>Opciones que debe tener</th></tr>
+        </thead>
+        <tbody>
+          <tr><td class="campo">piezas.estado</td><td class="tipo">Selección única</td><td>borrador, en_revision, aprobado, rechazado, publicado</td></tr>
+          <tr><td class="campo">piezas.canal</td><td class="tipo">Selección única</td><td>nota_prensa, x, facebook, instagram, boletin</td></tr>
+          <tr><td class="campo">ejemplos.canal</td><td class="tipo">Selección única</td><td>igual que la anterior</td></tr>
+          <tr><td class="campo">fuentes.tipo</td><td class="tipo">Selección única</td><td>acta_pleno, acuerdo, nota_bruta, evento</td></tr>
+          <tr><td class="campo">fuentes.estado</td><td class="tipo">Selección única</td><td>pendiente, procesando, segmentada, error</td></tr>
+          <tr><td class="campo">contactos.tipo</td><td class="tipo">Selección única</td><td>prensa, vecinos, asociaciones, cargos</td></tr>
+          <tr><td class="campo">contactos.base_legal</td><td class="tipo">Selección única</td><td>interes_legitimo, consentimiento, mision_publica</td></tr>
+          <tr><td class="campo">puntos.noticiable</td><td class="tipo">Casilla</td><td>—</td></tr>
+          <tr><td class="campo">puntos.generado</td><td class="tipo">Casilla</td><td>—</td></tr>
+          <tr><td class="campo">piezas.validacion_ok</td><td class="tipo">Casilla</td><td>—</td></tr>
+          <tr><td class="campo">contactos.baja</td><td class="tipo">Casilla</td><td>—</td></tr>
+          <tr><td class="campo">ejemplos.usar</td><td class="tipo">Casilla</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>Las columnas de texto largo (<code>contenido</code>, <code>tratamientos</code>,
+    <code>tono</code>, <code>texto</code>) conviene ponerlas como <strong>Texto largo</strong>
+    para que se lean cómodamente al revisar.</p>
+  </div>
+
+  <div class="bloque">
+    <div class="rotulo"><span class="letra">F</span><span>Acceso</span></div>
+    <h2>Deja preparada la conexión</h2>
+    <p>Los flujos automáticos necesitan una llave para escribir en estas tablas.</p>
+    <ol class="pasos">
+      <li>Arriba a la derecha, en tu perfil, busca <strong>Ajustes</strong> →
+      <strong>Tokens de base de datos</strong> (<em>Database tokens</em>).</li>
+      <li>Crea uno nuevo, llámalo <strong>n8n</strong> y dale permisos sobre la base
+      <em>Comunicación institucional</em>.</li>
+      <li><strong>Cópialo y guárdalo</strong> donde lo tengas a mano. No me lo mandes por
+      aquí: lo pegarás tú directamente en n8n en la siguiente parte.</li>
+    </ol>
+  </div>
+
+  <div class="final">
+    <h2>Y ya está la parte 1</h2>
+    <p>Cuando lo tengas, dímelo y te paso la parte 2: conectar n8n para que lea de estas
+    tablas, genere el contenido y lo devuelva aquí para que lo apruebes. Si algo no aparece
+    donde digo o Baserow lo llama de otra forma, cuéntamelo y lo ajusto — te estoy guiando
+    sobre una interfaz que no tengo delante.</p>
+  </div>
+
+  <footer>Parte 1 de 2 · Baserow · agosto de 2026</footer>
+
+</div>
