@@ -1,0 +1,125 @@
+# Esquema de la base plantilla de Baserow.
+#
+# Este fichero es la fuente de verdad del modelo de datos. `crear_base_plantilla.py`
+# lo aplica contra la API de Baserow, pero si la API cambiara o el script fallara,
+# esto sigue siendo la especificación para crear las tablas a mano en la interfaz.
+#
+# Tipos admitidos (se traducen a tipos de Baserow en el script):
+#   texto, texto_largo, numero, si_no, opcion, fecha, fecha_hora,
+#   email, url, fichero, enlace, creado_en
+#
+# El primer campo de cada tabla es el campo principal (primary) de Baserow:
+# no se puede borrar ni cambiar de posición.
+
+base: "Comunicación institucional"
+
+tablas:
+
+  # ---------------------------------------------------------------- config --
+  # Una sola fila. Es lo que hace que la salida suene a este ayuntamiento
+  # y no a IA genérica. El gabinete la edita sin tocar n8n.
+  config:
+    descripcion: "Configuración del ayuntamiento. Una única fila."
+    campos:
+      - {nombre: clave, tipo: texto, ayuda: "Identificador corto, p.ej. sanlucar"}
+      - {nombre: nombre_oficial, tipo: texto, ayuda: "Ayuntamiento de Sanlúcar de Barrameda"}
+      - {nombre: gentilicio, tipo: texto, ayuda: "sanluqueño/a"}
+      - {nombre: cargo_alcaldia, tipo: opcion, opciones: [alcalde, alcaldesa]}
+      - {nombre: nombre_alcaldia, tipo: texto}
+      - {nombre: tratamientos, tipo: texto_largo, ayuda: "Cómo nombrar al consistorio, cargos y áreas. Qué NO decir."}
+      - {nombre: tono, tipo: texto_largo, ayuda: "Institucional, cercano, sobrio..."}
+      - {nombre: lenguaje_inclusivo, tipo: opcion, opciones: [si, no, moderado]}
+      - {nombre: hashtags, tipo: texto, ayuda: "Separados por espacios"}
+      - {nombre: perfil_x, tipo: texto}
+      - {nombre: perfil_facebook, tipo: texto}
+      - {nombre: perfil_instagram, tipo: texto}
+      - {nombre: palabras_nota_prensa, tipo: numero, defecto: 350}
+      - {nombre: caracteres_x, tipo: numero, defecto: 270}
+      - {nombre: palabras_facebook, tipo: numero, defecto: 90}
+      - {nombre: palabras_instagram, tipo: numero, defecto: 60}
+      - {nombre: lista_brevo_id, tipo: numero, ayuda: "ID de la lista de prensa en Brevo"}
+      - {nombre: notas_adicionales, tipo: texto_largo}
+
+  # -------------------------------------------------------------- ejemplos --
+  # 5-10 notas de prensa reales anteriores. Es lo que más mueve la aguja
+  # en que la salida suene a ellos: más que afinar el texto del prompt.
+  ejemplos:
+    descripcion: "Piezas reales anteriores, inyectadas en el prompt como ejemplos."
+    campos:
+      - {nombre: titulo, tipo: texto}
+      - {nombre: canal, tipo: opcion, opciones: [nota_prensa, x, facebook, instagram, boletin]}
+      - {nombre: texto, tipo: texto_largo}
+      - {nombre: fecha, tipo: fecha}
+      - {nombre: usar, tipo: si_no, ayuda: "Desmarcar para excluirlo del prompt sin borrarlo"}
+
+  # --------------------------------------------------------------- fuentes --
+  fuentes:
+    descripcion: "Documentos de entrada: actas, acuerdos, notas en bruto, eventos."
+    campos:
+      - {nombre: titulo, tipo: texto}
+      - {nombre: tipo, tipo: opcion, opciones: [acta_pleno, acuerdo, nota_bruta, evento]}
+      - {nombre: fichero, tipo: fichero}
+      - {nombre: fecha_sesion, tipo: fecha}
+      - {nombre: estado, tipo: opcion, opciones: [pendiente, procesando, segmentada, error]}
+      - {nombre: paginas, tipo: numero}
+      - {nombre: error, tipo: texto_largo, ayuda: "Mensaje si la segmentación falló"}
+      - {nombre: creado_en, tipo: creado_en}
+
+  # ---------------------------------------------------------------- puntos --
+  # La unidad de trabajo real. Un acta produce N puntos; sólo 2-3 son noticiables.
+  puntos:
+    descripcion: "Puntos del orden del día extraídos de una fuente."
+    campos:
+      - {nombre: titulo, tipo: texto}
+      - {nombre: fuente, tipo: enlace, tabla: fuentes}
+      - {nombre: orden, tipo: numero}
+      - {nombre: texto, tipo: texto_largo, ayuda: "Texto literal del acuerdo en el acta"}
+      - {nombre: pagina, tipo: numero}
+      - {nombre: noticiable, tipo: si_no, ayuda: "Marcar para generar piezas de este punto"}
+      - {nombre: generado, tipo: si_no, ayuda: "Lo marca n8n; evita regenerar lo ya generado"}
+
+  # ---------------------------------------------------------------- piezas --
+  piezas:
+    descripcion: "Contenido generado, pendiente de revisión y aprobación humana."
+    campos:
+      - {nombre: identificador, tipo: texto}
+      - {nombre: punto, tipo: enlace, tabla: puntos}
+      - {nombre: canal, tipo: opcion, opciones: [nota_prensa, x, facebook, instagram, boletin]}
+      - {nombre: contenido, tipo: texto_largo, ayuda: "Editable por el gabinete"}
+      - {nombre: estado, tipo: opcion, opciones: [borrador, en_revision, aprobado, rechazado, publicado]}
+      - {nombre: fragmento_fuente, tipo: texto_largo, ayuda: "Texto del acta que respalda esta pieza"}
+      - {nombre: aviso_validacion, tipo: texto_largo, ayuda: "Cifras del texto que no aparecen en la fuente"}
+      - {nombre: validacion_ok, tipo: si_no}
+      - {nombre: aprobado_por, tipo: texto, ayuda: "Lo escribe n8n al detectar el cambio de estado"}
+      - {nombre: aprobado_en, tipo: fecha_hora}
+      - {nombre: modelo, tipo: texto}
+      - {nombre: creado_en, tipo: creado_en}
+
+  # ------------------------------------------------------------- contactos --
+  # base_legal y fecha_consentimiento desde el minuto uno: añadirlos después
+  # obliga a auditar una base ya poblada, que es mucho peor.
+  contactos:
+    descripcion: "Destinatarios segmentables. Datos personales: ver docs/ARQUITECTURA.md §5."
+    campos:
+      - {nombre: nombre, tipo: texto}
+      - {nombre: email, tipo: email}
+      - {nombre: medio, tipo: texto, ayuda: "Diario de Cádiz, Onda Cero..."}
+      - {nombre: tipo, tipo: opcion, opciones: [prensa, vecinos, asociaciones, cargos]}
+      - {nombre: etiquetas, tipo: texto, ayuda: "Separadas por comas"}
+      - {nombre: base_legal, tipo: opcion, opciones: [interes_legitimo, consentimiento, mision_publica]}
+      - {nombre: fecha_consentimiento, tipo: fecha}
+      - {nombre: origen_consentimiento, tipo: texto, ayuda: "Formulario web, alta manual, contacto profesional..."}
+      - {nombre: baja, tipo: si_no}
+      - {nombre: fecha_baja, tipo: fecha}
+
+  # ---------------------------------------------------------------- envios --
+  envios:
+    descripcion: "Registro de envíos realizados. Trazabilidad."
+    campos:
+      - {nombre: identificador, tipo: texto}
+      - {nombre: pieza, tipo: enlace, tabla: piezas}
+      - {nombre: segmento, tipo: texto}
+      - {nombre: destinatarios, tipo: numero}
+      - {nombre: fecha, tipo: fecha_hora}
+      - {nombre: estado, tipo: opcion, opciones: [enviado, error]}
+      - {nombre: detalle, tipo: texto_largo}

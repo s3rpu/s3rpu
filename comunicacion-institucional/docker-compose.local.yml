@@ -1,0 +1,16 @@
+# Override para probar el stack en local, sin dominio ni TLS.
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
+# Baserow queda en http://localhost:8080 y n8n en http://localhost:5678
+services:
+  baserow:
+    ports:
+      - "8080:80"
+  n8n:
+    environment:
+      N8N_PROTOCOL: http
+      WEBHOOK_URL: http://localhost:5678/
+      N8N_EDITOR_BASE_URL: http://localhost:5678/
+    ports:
+      - "5678:5678"
+  caddy:
+    profiles: ["no-arrancar-en-local"]

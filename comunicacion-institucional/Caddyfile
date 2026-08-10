@@ -1,0 +1,10 @@
+# TLS automático vía Let's Encrypt. Requiere que los dos subdominios
+# apunten por DNS a la IP de este servidor antes de arrancar.
+
+{$BASEROW_HOST} {
+	reverse_proxy baserow:80
+}
+
+{$N8N_HOST} {
+	reverse_proxy n8n:5678
+}

@@ -1,0 +1,112 @@
+name: comunicacion-institucional
+
+# Stack completo: n8n (orquestación) + Baserow (datos y panel de aprobación)
+# sobre un único Postgres, detrás de Caddy con TLS automático.
+#
+# Un solo Postgres para los dos servicios es deliberado: la copia de seguridad
+# del sistema entero es un `pg_dump` (ver scripts/copia-seguridad.sh), que es lo
+# que hace falta poder enseñar a un cliente del sector público.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?falta POSTGRES_USER en .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?falta POSTGRES_PASSWORD en .env}
+      POSTGRES_DB: postgres
+    volumes:
+      - postgres_datos:/var/lib/postgresql/data
+      - ./initdb:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  baserow:
+    image: baserow/baserow:2.3.3
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      BASEROW_PUBLIC_URL: ${BASEROW_PUBLIC_URL:?falta BASEROW_PUBLIC_URL en .env}
+      SECRET_KEY: ${BASEROW_SECRET_KEY:?falta BASEROW_SECRET_KEY en .env}
+      # TLS lo termina Caddy: Baserow escucha en HTTP plano dentro de la red.
+      BASEROW_CADDY_ADDRESSES: ":80"
+      DATABASE_HOST: postgres
+      DATABASE_PORT: "5432"
+      DATABASE_NAME: baserow
+      DATABASE_USER: ${POSTGRES_USER}
+      DATABASE_PASSWORD: ${POSTGRES_PASSWORD}
+      # Sin registro abierto: las cuentas las crea el administrador.
+      BASEROW_DISABLE_PUBLIC_URL_CHECK: "true"
+      DISABLE_SIGNUPS: ${BASEROW_DISABLE_SIGNUPS:-false}
+    volumes:
+      - baserow_datos:/baserow/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost/api/settings/ > /dev/null || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 20
+      start_period: 120s
+
+  n8n:
+    image: n8nio/n8n:2.34.4
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_TYPE: postgresdb
+      DB_POSTGRESDB_HOST: postgres
+      DB_POSTGRESDB_PORT: "5432"
+      DB_POSTGRESDB_DATABASE: n8n
+      DB_POSTGRESDB_USER: ${POSTGRES_USER}
+      DB_POSTGRESDB_PASSWORD: ${POSTGRES_PASSWORD}
+      # Cifra las credenciales guardadas (AWS, Brevo, Baserow).
+      # Si se pierde esta clave, hay que volver a introducirlas todas.
+      N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY:?falta N8N_ENCRYPTION_KEY en .env}
+      N8N_HOST: ${N8N_HOST:?falta N8N_HOST en .env}
+      N8N_PROTOCOL: https
+      N8N_PORT: "5678"
+      WEBHOOK_URL: https://${N8N_HOST}/
+      N8N_EDITOR_BASE_URL: https://${N8N_HOST}/
+      N8N_PROXY_HOPS: "1"
+      GENERIC_TIMEZONE: Europe/Madrid
+      TZ: Europe/Madrid
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_RUNNERS_ENABLED: "true"
+      # Las actas son ficheros grandes: sin esto n8n las trocea en disco y
+      # las ejecuciones se vuelven ilegibles al depurar.
+      N8N_DEFAULT_BINARY_DATA_MODE: filesystem
+    volumes:
+      - n8n_datos:/home/node/.n8n
+      - n8n_ficheros:/datos
+
+  caddy:
+    image: caddy:2.11.4-alpine
+    restart: unless-stopped
+    depends_on:
+      - baserow
+      - n8n
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      BASEROW_HOST: ${BASEROW_HOST:?falta BASEROW_HOST en .env}
+      N8N_HOST: ${N8N_HOST}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_datos:/data
+      - caddy_config:/config
+
+volumes:
+  postgres_datos:
+  baserow_datos:
+  n8n_datos:
+  n8n_ficheros:
+  caddy_datos:
+  caddy_config:
