@@ -1,0 +1,10 @@
+# Estado y salida del piloto automático de redes
+influencer.db
+influencer.db-journal
+salida/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/

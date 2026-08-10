@@ -1,0 +1,73 @@
+name: Piloto automático de redes
+
+on:
+  schedule:
+    # Cada hora en punto (UTC). El programa solo publica lo que ya toca según
+    # el calendario de influencer.yml, así que ejecutarlo de más es inofensivo.
+    - cron: '0 * * * *'
+  workflow_dispatch:
+    inputs:
+      simular:
+        description: 'Simular (no publica en las redes reales)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: influencer
+  cancel-in-progress: false
+
+jobs:
+  ciclo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      # El estado (ideas, cola, métricas) vive en influencer.db. La caché lo
+      # arrastra entre ejecuciones; si se pierde, el programa lo reconstruye.
+      - name: Restaurar estado
+        uses: actions/cache@v4
+        with:
+          path: influencer.db
+          key: influencer-db-${{ github.run_id }}
+          restore-keys: influencer-db-
+
+      - name: Preparar configuración
+        run: test -f influencer.yml || cp influencer.example.yml influencer.yml
+
+      - name: Ejecutar un ciclo
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          MASTODON_TOKEN: ${{ secrets.MASTODON_TOKEN }}
+          X_TOKEN: ${{ secrets.X_TOKEN }}
+          IG_TOKEN: ${{ secrets.IG_TOKEN }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          LINKEDIN_TOKEN: ${{ secrets.LINKEDIN_TOKEN }}
+          LINKEDIN_AUTOR: ${{ secrets.LINKEDIN_AUTOR }}
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          python -m influencer run --una-vez \
+            ${{ inputs.simular && '--simular' || '' }}
+
+      - name: Informe
+        run: python -m influencer informe
+
+      - name: Guardar los posts generados
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: posts-${{ github.run_id }}
+          path: salida/
+          if-no-files-found: ignore
+          retention-days: 14

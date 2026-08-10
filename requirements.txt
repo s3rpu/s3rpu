@@ -1,0 +1,6 @@
+# Dependencias del piloto automático de redes (carpeta influencer/).
+PyYAML>=6.0
+requests>=2.31
+
+# Opcional: sin esto el programa funciona con el generador de plantillas.
+anthropic>=0.40

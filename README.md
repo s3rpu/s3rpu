@@ -22,3 +22,17 @@ Abre `index.html` en el navegador (o sírvelo con cualquier servidor estático, 
 - `js/app.js` — lógica de la app (registro, historial, estadísticas, import/export).
 
 Para editar la rutina, modifica `js/routine.js`.
+
+## Piloto automático de redes sociales
+
+En este mismo repo hay un segundo programa, independiente de la app web: un
+workflow automático que genera ideas, las reparte en un calendario, escribe cada
+publicación adaptada a cada red, la publica a su hora y recoge las métricas.
+
+Está en la carpeta `influencer/` y se documenta en [INFLUENCER.md](INFLUENCER.md).
+
+```bash
+pip install -r requirements.txt
+python -m influencer init
+python -m influencer run --una-vez --simular
+```

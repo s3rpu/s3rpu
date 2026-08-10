@@ -1,0 +1,94 @@
+# Configuración del piloto automático de redes sociales.
+# Copia este fichero a influencer.yml (o usa: python -m influencer init).
+#
+# Las credenciales NO se escriben aquí: se referencian con ${VARIABLE} y se
+# leen del entorno. Así puedes versionar este fichero sin filtrar nada.
+
+persona:
+  nombre: "Mi Progreso"
+  nicho: "entrenamiento de fuerza en casa"
+  audiencia: "gente que entrena por su cuenta y quiere progresar sin gimnasio"
+  tono: "cercano, directo, sin humo, con algo de humor"
+  idioma: es
+  temas:
+    - rutinas de fuerza
+    - progresión de cargas
+    - constancia y hábitos
+    - errores típicos de principiante
+    - material mínimo para entrenar en casa
+  evitar:
+    - dietas milagro
+    - suplementos sin evidencia
+    - promesas de resultados en X días
+  cta_por_defecto: "¿Lo pruebas esta semana? Cuéntame cómo te va."
+  firma: ""
+
+modelo:
+  id: claude-opus-5      # también: claude-sonnet-5, claude-haiku-4-5
+  esfuerzo: medium       # low | medium | high | xhigh | max
+  max_tokens: 8000
+
+# Cuántas ideas mantener siempre en el banco y cuántos intentos por publicación.
+ideas_minimas: 12
+reintentos: 3
+base_datos: influencer.db
+salida: salida           # carpeta de los posts simulados
+
+plataformas:
+  # Publicador local: no necesita credenciales, escribe los posts en 'salida/'.
+  - nombre: simulacion
+    activa: true
+    formato: post
+
+  - nombre: telegram
+    activa: false
+    formato: post
+    credenciales:
+      token: ${TELEGRAM_BOT_TOKEN}
+      chat_id: ${TELEGRAM_CHAT_ID}
+
+  - nombre: mastodon
+    activa: false
+    formato: post
+    credenciales:
+      instancia: https://mastodon.social
+      token: ${MASTODON_TOKEN}
+
+  - nombre: x
+    activa: false
+    formato: hilo
+    credenciales:
+      token: ${X_TOKEN}          # OAuth 2.0 de usuario, con scope tweet.write
+      usuario: miusuario         # solo para construir la URL del post
+
+  - nombre: instagram
+    activa: false
+    formato: carrusel
+    credenciales:
+      token: ${IG_TOKEN}         # token de la Graph API
+      usuario_id: ${IG_USER_ID}  # IG User ID de cuenta de empresa/creador
+      imagen_defecto: ""         # URL pública usada si el post no trae imagen
+
+  - nombre: linkedin
+    activa: false
+    formato: post
+    credenciales:
+      token: ${LINKEDIN_TOKEN}
+      autor: ${LINKEDIN_AUTOR}   # urn:li:person:XXXX o urn:li:organization:XXXX
+
+  - nombre: discord
+    activa: false
+    formato: post
+    credenciales:
+      webhook: ${DISCORD_WEBHOOK}
+
+calendario:
+  zona_horaria: Europe/Madrid
+  dias_horizonte: 7      # hasta dónde planifica por delante
+  franjas:
+    - dias: [lun, mie, vie]
+      horas: ["09:00", "19:30"]
+      plataformas: [simulacion]   # vacío o ausente = todas las activas
+    - dias: [sab]
+      horas: ["11:00"]
+      plataformas: [simulacion]
