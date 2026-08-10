@@ -1,6 +1,6 @@
 # Adaptaciones a redes sociales
 
-**Modelo:** `anthropic.claude-opus-5` · **effort:** `medium`
+**Modelo:** `claude-opus-5` · **effort:** `medium`
 **Entrada:** la nota de prensa ya generada del mismo punto.
 **Salida:** tres piezas (`x`, `facebook`, `instagram`).
 

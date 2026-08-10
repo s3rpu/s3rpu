@@ -33,7 +33,7 @@ tablas:
       - {nombre: perfil_x, tipo: texto}
       - {nombre: perfil_facebook, tipo: texto}
       - {nombre: perfil_instagram, tipo: texto}
-      - {nombre: palabras_nota_prensa, tipo: numero, defecto: 350}
+      - {nombre: palabras_nota_prensa, tipo: numero, defecto: 300}
       - {nombre: caracteres_x, tipo: numero, defecto: 270}
       - {nombre: palabras_facebook, tipo: numero, defecto: 90}
       - {nombre: palabras_instagram, tipo: numero, defecto: 60}

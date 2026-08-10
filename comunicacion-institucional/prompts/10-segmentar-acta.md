@@ -1,6 +1,6 @@
 # Segmentar acta → puntos del orden del día
 
-**Modelo:** `anthropic.claude-sonnet-5` · **effort:** `medium`
+**Modelo:** `claude-sonnet-5` · **effort:** `medium`
 **Entrada:** el PDF del acta como bloque `document` (Claude lo lee tenga o no capa de texto).
 **Salida:** JSON. Se escribe en la tabla `puntos`.
 

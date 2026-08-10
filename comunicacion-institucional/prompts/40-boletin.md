@@ -1,6 +1,6 @@
 # Resumen para boletín / newsletter
 
-**Modelo:** `anthropic.claude-sonnet-5` · **effort:** `medium`
+**Modelo:** `claude-sonnet-5` · **effort:** `medium`
 **Entrada:** todas las piezas aprobadas de un periodo.
 **Salida:** un bloque por acuerdo, para montar el boletín.
 
