@@ -115,6 +115,7 @@ function deleteContact(id) {
   DATA.contacts = DATA.contacts.filter((c) => c.id !== id);
   DATA.lists.forEach((list) => {
     list.contactIds = list.contactIds.filter((cid) => cid !== id);
+    if (list.contactTags) delete list.contactTags[id];
   });
   saveData(DATA);
 }
@@ -401,7 +402,81 @@ function removeContactFromList(listId, contactId) {
   const list = DATA.lists.find((l) => l.id === listId);
   if (!list) return;
   list.contactIds = list.contactIds.filter((id) => id !== contactId);
+  if (list.contactTags) delete list.contactTags[contactId];
   saveData(DATA);
+}
+
+// ---------- Etiquetas (sub-listados dentro de un listado) ----------
+// Cada listado tiene su propio conjunto de etiquetas (no son globales): así
+// una misma "Lola" puede estar etiquetada como "Confirmada" en el listado de
+// la Feria y sin ninguna etiqueta en el de Navidad. `contactTags` guarda,
+// por contacto, qué etiquetas de ESTE listado tiene asignadas.
+function ensureListTags(list) {
+  if (!Array.isArray(list.tags)) list.tags = [];
+  if (!list.contactTags || typeof list.contactTags !== 'object') list.contactTags = {};
+}
+
+function listTags(listId) {
+  const list = DATA.lists.find((l) => l.id === listId);
+  if (!list) return [];
+  ensureListTags(list);
+  return list.tags;
+}
+
+function createListTag(listId, name) {
+  const list = DATA.lists.find((l) => l.id === listId);
+  if (!list) return null;
+  ensureListTags(list);
+  const trimmed = (name || '').toString().trim();
+  if (!trimmed) return null;
+  let tag = list.tags.find((t) => normalizeText(t.name) === normalizeText(trimmed));
+  if (!tag) {
+    tag = { id: uid(), name: trimmed };
+    list.tags.push(tag);
+    saveData(DATA);
+  }
+  return tag;
+}
+
+function deleteListTag(listId, tagId) {
+  const list = DATA.lists.find((l) => l.id === listId);
+  if (!list) return;
+  ensureListTags(list);
+  list.tags = list.tags.filter((t) => t.id !== tagId);
+  Object.keys(list.contactTags).forEach((cid) => {
+    list.contactTags[cid] = list.contactTags[cid].filter((tid) => tid !== tagId);
+    if (list.contactTags[cid].length === 0) delete list.contactTags[cid];
+  });
+  saveData(DATA);
+}
+
+function assignTagToContacts(listId, tagId, contactIds) {
+  const list = DATA.lists.find((l) => l.id === listId);
+  if (!list) return;
+  ensureListTags(list);
+  contactIds.forEach((cid) => {
+    if (!list.contactTags[cid]) list.contactTags[cid] = [];
+    if (!list.contactTags[cid].includes(tagId)) list.contactTags[cid].push(tagId);
+  });
+  saveData(DATA);
+}
+
+function removeContactTag(listId, contactId, tagId) {
+  const list = DATA.lists.find((l) => l.id === listId);
+  if (!list) return;
+  ensureListTags(list);
+  if (!list.contactTags[contactId]) return;
+  list.contactTags[contactId] = list.contactTags[contactId].filter((tid) => tid !== tagId);
+  if (list.contactTags[contactId].length === 0) delete list.contactTags[contactId];
+  saveData(DATA);
+}
+
+function contactTagsInList(listId, contactId) {
+  const list = DATA.lists.find((l) => l.id === listId);
+  if (!list) return [];
+  ensureListTags(list);
+  const ids = list.contactTags[contactId] || [];
+  return ids.map((tid) => list.tags.find((t) => t.id === tid)).filter(Boolean);
 }
 
 function listContacts(listId) {

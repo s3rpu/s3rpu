@@ -40,8 +40,7 @@ function currentRoute() {
   const hash = window.location.hash.replace('#', '');
   if (hash.startsWith('listas/')) return { tab: 'listas', listId: hash.slice('listas/'.length) };
   if (hash === 'listas') return { tab: 'listas', listId: null };
-  if (hash === 'todos') return { tab: 'todos', listId: null };
-  return { tab: 'buscar', listId: null };
+  return { tab: 'todos', listId: null };
 }
 
 function navigate(hash) {
@@ -55,10 +54,8 @@ function renderCurrentTab() {
   if (route.tab === 'listas') {
     if (route.listId) renderListDetail(route.listId);
     else renderListas();
-  } else if (route.tab === 'todos') {
-    renderTodos();
   } else {
-    renderBuscar();
+    renderTodos();
   }
 }
 
@@ -66,7 +63,6 @@ function renderTabs(activeTab) {
   const nav = document.getElementById('tabs');
   nav.innerHTML = '';
   const tabs = [
-    { id: 'buscar', label: 'Buscar' },
     { id: 'todos', label: 'Base de datos' },
     { id: 'listas', label: 'Listados' },
   ];
@@ -79,60 +75,20 @@ function renderTabs(activeTab) {
   });
 }
 
-// ---------- Pestaña Base de datos (listado completo, sin filtrar) ----------
+// ---------- Pestaña Base de datos (buscador + listado completo) ----------
 
 function renderTodos() {
-  const main = document.getElementById('main');
-  const contacts = DATA.contacts.slice().sort((a, b) => contactDisplayName(a).localeCompare(contactDisplayName(b), 'es'));
-  main.innerHTML = `
-    ${
-      contacts.length > 0
-        ? `<div class="search-bar">
-             <button id="clean-data-btn" class="icon-btn">🧹 Compilar datos duplicados</button>
-             <button id="delete-all-btn" class="delete-btn">✕ Borrar todo</button>
-           </div>`
-        : ''
-    }
-    <div class="section-title">${contacts.length} contacto${contacts.length === 1 ? '' : 's'} en total</div>
-    <div id="todos-list" class="contact-list"></div>
-  `;
-  const cleanDataBtn = document.getElementById('clean-data-btn');
-  if (cleanDataBtn) {
-    cleanDataBtn.addEventListener('click', () => {
-      if (
-        confirm(
-          '¿Compilar los datos duplicados de todos los contactos? Si un contacto tiene el mismo teléfono o el mismo correo repetido en varios campos (aunque sea con formato distinto), se dejará solo en el primero; el resto de campos redundantes se vaciarán.'
-        )
-      ) {
-        const changed = cleanAllContactsData();
-        showToast(changed > 0 ? `✅ Se actualizaron ${changed} contactos.` : 'No había datos duplicados que compilar.');
-        renderCurrentTab();
-      }
-    });
-  }
-  const deleteAllBtn = document.getElementById('delete-all-btn');
-  if (deleteAllBtn) {
-    deleteAllBtn.addEventListener('click', () => {
-      if (confirm(`¿De verdad quieres borrarlo todo? Se eliminarán los ${contacts.length} contactos de la base de datos (los listados se quedan vacíos, pero no se borran). Esta acción no se puede deshacer.`)) {
-        deleteAllContacts();
-        showToast('Se ha borrado toda la base de datos.');
-        renderCurrentTab();
-      }
-    });
-  }
-  const listEl = document.getElementById('todos-list');
-  listEl.innerHTML = contacts.length === 0 ? '<p class="empty">Todavía no hay contactos. Importa un Excel/CSV o crea uno nuevo.</p>' : contacts.map((c) => contactCardHtml(c, 'search')).join('');
-  wireContactCards(listEl, 'search', null);
-}
-
-// ---------- Pestaña Buscar ----------
-
-function renderBuscar() {
   const main = document.getElementById('main');
   main.innerHTML = `
     <div class="search-bar">
       <input type="text" id="search-input" placeholder="Buscar por nombre, cargo, teléfono, email…" />
       <button id="new-contact-btn" class="primary-btn">+ Nuevo contacto</button>
+      ${
+        DATA.contacts.length > 0
+          ? `<button id="clean-data-btn" class="icon-btn">🧹 Compilar datos duplicados</button>
+             <button id="delete-all-btn" class="delete-btn">✕ Borrar todo</button>`
+          : ''
+      }
     </div>
     <div id="search-meta" class="section-title"></div>
     <div id="results-list" class="contact-list"></div>
@@ -144,6 +100,36 @@ function renderBuscar() {
     renderResultsList();
   });
   document.getElementById('new-contact-btn').addEventListener('click', () => openContactModal(null));
+  const cleanDataBtn = document.getElementById('clean-data-btn');
+  if (cleanDataBtn) {
+    cleanDataBtn.addEventListener('click', async () => {
+      const ok = await showConfirmModal({
+        title: 'Compilar datos duplicados',
+        message:
+          '¿Compilar los datos duplicados de todos los contactos? Si un contacto tiene el mismo teléfono o el mismo correo repetido en varios campos (aunque sea con formato distinto), se dejará solo en el primero; el resto de campos redundantes se vaciarán.',
+        confirmLabel: 'Compilar',
+        danger: false,
+      });
+      if (!ok) return;
+      const changed = cleanAllContactsData();
+      showToast(changed > 0 ? `✅ Se actualizaron ${changed} contactos.` : 'No había datos duplicados que compilar.');
+      renderCurrentTab();
+    });
+  }
+  const deleteAllBtn = document.getElementById('delete-all-btn');
+  if (deleteAllBtn) {
+    deleteAllBtn.addEventListener('click', async () => {
+      const ok = await showConfirmModal({
+        title: 'Borrar todo',
+        message: `¿De verdad quieres borrarlo todo? Se eliminarán los ${DATA.contacts.length} contactos de la base de datos (los listados se quedan vacíos, pero no se borran). Esta acción no se puede deshacer.`,
+        confirmLabel: 'Borrar todo',
+      });
+      if (!ok) return;
+      deleteAllContacts();
+      showToast('Se ha borrado toda la base de datos.');
+      renderCurrentTab();
+    });
+  }
   renderResultsList();
   input.focus();
   input.setSelectionRange(input.value.length, input.value.length);
@@ -171,9 +157,18 @@ function contactFieldsHtml(contact) {
     .join('');
 }
 
-function contactCardHtml(c, context) {
+function contactTagsHtml(listId, contactId) {
+  const tags = contactTagsInList(listId, contactId);
+  if (tags.length === 0) return '';
+  return `<div class="contact-tags">${tags
+    .map((t) => `<span class="tag-chip">${escapeHtml(t.name)}<button type="button" class="tag-remove-btn" data-tag="${t.id}" title="Quitar etiqueta">×</button></span>`)
+    .join('')}</div>`;
+}
+
+function contactCardHtml(c, context, listId) {
   const name = escapeHtml(contactDisplayName(c));
-  const selecting = context === 'list' && listSelectionState.active;
+  const inList = context === 'list';
+  const selecting = inList && listSelectionState.active;
   const checkbox = selecting
     ? `<label class="contact-select"><input type="checkbox" class="contact-select-checkbox" data-id="${c.id}" ${listSelectionState.selected.has(c.id) ? 'checked' : ''} /></label>`
     : '';
@@ -183,11 +178,11 @@ function contactCardHtml(c, context) {
       <div class="contact-main">
         <div class="contact-name">${name}</div>
         <div class="contact-fields">${contactFieldsHtml(c)}</div>
+        ${inList ? contactTagsHtml(listId, c.id) : ''}
       </div>
       <div class="contact-actions">
         <button class="icon-btn" data-action="edit">Editar</button>
-        ${context === 'list' ? '<button class="icon-btn" data-action="remove">Quitar de la lista</button>' : '<button class="icon-btn" data-action="addlist">Añadir a…</button>'}
-        <button class="delete-btn" data-action="delete" title="Borrar contacto">✕ Borrar</button>
+        ${inList ? '<button class="icon-btn" data-action="remove">Quitar de la lista</button>' : '<button class="icon-btn" data-action="addlist">Añadir a…</button><button class="delete-btn" data-action="delete" title="Borrar contacto">✕ Borrar</button>'}
       </div>
     </div>`;
 }
@@ -196,14 +191,19 @@ function wireContactCards(container, context, listId) {
   container.querySelectorAll('.contact-card').forEach((card) => {
     const id = card.dataset.id;
     card.querySelector('[data-action="edit"]').addEventListener('click', () => openContactModal(getContact(id)));
-    card.querySelector('[data-action="delete"]').addEventListener('click', () => {
-      const c = getContact(id);
-      if (confirm(`¿Borrar el contacto "${contactDisplayName(c)}"? Esta acción no se puede deshacer.`)) {
+    const deleteBtn = card.querySelector('[data-action="delete"]');
+    if (deleteBtn)
+      deleteBtn.addEventListener('click', async () => {
+        const ok = await showConfirmModal({
+          title: 'Eliminar contacto',
+          message: '¿Seguro que quieres eliminar este contacto? Si eliminas este contacto se borrará de la base de datos.',
+          confirmLabel: 'Eliminar',
+        });
+        if (!ok) return;
         deleteContact(id);
         showToast('Contacto borrado.');
         renderCurrentTab();
-      }
-    });
+      });
     const addBtn = card.querySelector('[data-action="addlist"]');
     if (addBtn) addBtn.addEventListener('click', () => toggleAddToListPanel(card, id));
     const removeBtn = card.querySelector('[data-action="remove"]');
@@ -221,6 +221,12 @@ function wireContactCards(container, context, listId) {
         updateSelectionCount();
       });
     }
+    card.querySelectorAll('.tag-remove-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        removeContactTag(listId, id, btn.dataset.tag);
+        renderListContactsList(listId);
+      });
+    });
   });
 }
 
@@ -447,6 +453,43 @@ function showPromptModal({ title, message, defaultValue = '', confirmLabel = 'Ac
   });
 }
 
+// ---------- Diálogo de confirmación (sustituye a confirm()) ----------
+// Igual que showPromptModal, evita depender del diálogo nativo confirm():
+// en Electron, tras cerrarse un diálogo nativo, la ventana puede quedarse
+// sin el foco de teclado real aunque el elemento activo en el DOM sí lo
+// tenga, dejando inputs (como el buscador) sin responder hasta un segundo
+// clic. Usar un modal propio evita ese problema de raíz.
+function showConfirmModal({ title = 'Confirmar', message, confirmLabel = 'Aceptar', cancelLabel = 'Cancelar', danger = true }) {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById('prompt-overlay');
+    overlay.innerHTML = `
+      <div class="modal card">
+        <h3>${escapeHtml(title)}</h3>
+        <p class="dup-intro">${escapeHtml(message)}</p>
+        <div class="modal-actions">
+          <button type="button" id="confirm-cancel-btn" class="icon-btn">${escapeHtml(cancelLabel)}</button>
+          <button type="button" id="confirm-ok-btn" class="${danger ? 'delete-btn' : 'primary-btn'}">${escapeHtml(confirmLabel)}</button>
+        </div>
+      </div>`;
+    overlay.hidden = false;
+
+    let resolved = false;
+    const finish = (value) => {
+      if (resolved) return;
+      resolved = true;
+      overlay.hidden = true;
+      overlay.innerHTML = '';
+      resolve(value);
+    };
+
+    const okBtn = document.getElementById('confirm-ok-btn');
+    okBtn.addEventListener('click', () => finish(true));
+    okBtn.focus();
+    document.getElementById('confirm-cancel-btn').addEventListener('click', () => finish(false));
+    wireOverlayBackdropClose(overlay, () => finish(false));
+  });
+}
+
 // ---------- Pestaña Listados ----------
 
 function renderListas() {
@@ -506,12 +549,16 @@ function renderListsGrid() {
       renameList(id, name);
       renderListsGrid();
     });
-    card.querySelector('[data-action="borrar"]').addEventListener('click', () => {
+    card.querySelector('[data-action="borrar"]').addEventListener('click', async () => {
       const list = DATA.lists.find((l) => l.id === id);
-      if (confirm(`¿Borrar el listado "${list.name}"? Los contactos no se eliminarán del directorio.`)) {
-        deleteList(id);
-        renderListsGrid();
-      }
+      const ok = await showConfirmModal({
+        title: 'Borrar listado',
+        message: `¿Borrar el listado "${list.name}"? Los contactos no se eliminarán del directorio.`,
+        confirmLabel: 'Borrar',
+      });
+      if (!ok) return;
+      deleteList(id);
+      renderListsGrid();
     });
   });
 }
@@ -526,6 +573,9 @@ let listSelectionState = { listId: null, active: false, selected: new Set() };
 // Filtro por forma de contacto (solo correo / solo teléfono / ambos / ninguno).
 let listFilterState = { listId: null, mode: 'all' };
 
+// Filtro por etiqueta (sub-listado dentro de un listado).
+let listTagFilterState = { listId: null, tagId: 'all' };
+
 function renderListDetail(listId) {
   const list = DATA.lists.find((l) => l.id === listId);
   const main = document.getElementById('main');
@@ -536,6 +586,8 @@ function renderListDetail(listId) {
   if (listSearchState.listId !== listId) listSearchState = { listId, query: '' };
   if (listSelectionState.listId !== listId) listSelectionState = { listId, active: false, selected: new Set() };
   if (listFilterState.listId !== listId) listFilterState = { listId, mode: 'all' };
+  if (listTagFilterState.listId !== listId) listTagFilterState = { listId, tagId: 'all' };
+  const tags = listTags(listId);
   main.innerHTML = `
     <div class="list-detail-header">
       <button id="back-btn" class="icon-btn">← Listados</button>
@@ -550,6 +602,14 @@ function renderListDetail(listId) {
         <option value="both">Correo y teléfono</option>
         <option value="none">Sin correo ni teléfono</option>
       </select>
+      ${
+        tags.length > 0
+          ? `<select id="list-tag-filter-select" class="icon-btn">
+               <option value="all">Todas las etiquetas</option>
+               ${tags.map((t) => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('')}
+             </select>`
+          : ''
+      }
       <button id="add-contacts-btn" class="primary-btn">+ Añadir contactos</button>
       <button id="import-list-excel-btn" class="icon-btn">Importar Excel a este listado</button>
       <button id="export-list-excel-btn" class="icon-btn">Exportar este listado a Excel</button>
@@ -560,6 +620,7 @@ function renderListDetail(listId) {
         ? `<div class="search-bar selection-toolbar">
              <button id="select-all-btn" class="icon-btn">Seleccionar todos</button>
              <button id="select-none-btn" class="icon-btn">Ninguno</button>
+             <button id="add-tag-btn" class="icon-btn">🏷️ Agregar etiqueta</button>
              <button id="copy-emails-btn" class="primary-btn">📋 Copiar correos electrónicos</button>
              <span id="selection-count" class="section-title"></span>
            </div>`
@@ -586,6 +647,7 @@ function renderListDetail(listId) {
       listSelectionState.selected.clear();
       renderListContactsList(listId);
     });
+    document.getElementById('add-tag-btn').addEventListener('click', () => openAddTagModal(listId));
     document.getElementById('copy-emails-btn').addEventListener('click', () => copySelectedEmails());
   }
   const searchInput = document.getElementById('list-search-input');
@@ -600,19 +662,30 @@ function renderListDetail(listId) {
     listFilterState.mode = filterSelect.value;
     renderListContactsList(listId);
   });
+  const tagFilterSelect = document.getElementById('list-tag-filter-select');
+  if (tagFilterSelect) {
+    tagFilterSelect.value = listTagFilterState.tagId;
+    tagFilterSelect.addEventListener('change', () => {
+      listTagFilterState.tagId = tagFilterSelect.value;
+      renderListContactsList(listId);
+    });
+  }
   renderListContactsList(listId);
 }
 
-// Aplica a la vez la búsqueda de texto y el filtro de correo/teléfono de un
-// listado, para que "Seleccionar todos" y el propio listado siempre
-// muestren/seleccionen exactamente el mismo conjunto de contactos.
+// Aplica a la vez la búsqueda de texto, el filtro de correo/teléfono y el
+// filtro de etiqueta de un listado, para que "Seleccionar todos" y el propio
+// listado siempre muestren/seleccionen exactamente el mismo conjunto de
+// contactos.
 function getFilteredListContacts(listId) {
   const all = listContacts(listId);
   const query = listSearchState.listId === listId ? listSearchState.query : '';
   const mode = listFilterState.listId === listId ? listFilterState.mode : 'all';
+  const tagId = listTagFilterState.listId === listId ? listTagFilterState.tagId : 'all';
   return all
     .filter((c) => (query ? contactMatches(c, query) : true))
-    .filter((c) => matchesContactFilter(c, mode));
+    .filter((c) => matchesContactFilter(c, mode))
+    .filter((c) => (tagId === 'all' ? true : contactTagsInList(listId, c.id).some((t) => t.id === tagId)));
 }
 
 function renderListContactsList(listId) {
@@ -626,7 +699,7 @@ function renderListContactsList(listId) {
       ? '<p class="empty">Este listado todavía no tiene contactos. Usa "+ Añadir contactos".</p>'
       : contacts.length === 0
         ? '<p class="empty">Sin resultados en este listado.</p>'
-        : contacts.map((c) => contactCardHtml(c, 'list')).join('');
+        : contacts.map((c) => contactCardHtml(c, 'list', listId)).join('');
   wireContactCards(el, 'list', listId);
   updateSelectionCount();
 }
@@ -702,6 +775,97 @@ function copySelectedEmails() {
     () => showToast(`✅ ${emails.size} correo${emails.size === 1 ? '' : 's'} copiado${emails.size === 1 ? '' : 's'} al portapapeles.`),
     () => alert('No se pudo copiar al portapapeles automáticamente. Cópialos a mano:\n\n' + text)
   );
+}
+
+// ---------- Etiquetas (sub-listados dentro de un listado) ----------
+
+function openAddTagModal(listId) {
+  const selectedIds = Array.from(listSelectionState.selected);
+  if (selectedIds.length === 0) {
+    showToast('No has seleccionado ningún contacto.');
+    return;
+  }
+  const overlay = document.getElementById('modal-overlay');
+
+  function render() {
+    const tags = listTags(listId);
+    overlay.innerHTML = `
+      <div class="modal card">
+        <h3>Agregar etiqueta</h3>
+        <p class="dup-intro">${selectedIds.length} contacto${selectedIds.length === 1 ? '' : 's'} seleccionado${selectedIds.length === 1 ? '' : 's'}.</p>
+        ${
+          tags.length === 0
+            ? '<p class="empty">Todavía no hay etiquetas en este listado. Crea la primera abajo.</p>'
+            : `<div class="tag-options">
+                 ${tags
+                   .map(
+                     (t) => `
+                   <div class="tag-option-row">
+                     <button type="button" class="tag-option" data-tag="${t.id}">${escapeHtml(t.name)}</button>
+                     <button type="button" class="tag-option-delete" data-tag="${t.id}" title="Borrar etiqueta">×</button>
+                   </div>`
+                   )
+                   .join('')}
+               </div>`
+        }
+        <div class="addlist-new">
+          <input type="text" placeholder="Crear etiqueta…" class="addlist-input" id="new-tag-input" />
+          <button type="button" id="create-tag-btn" class="addlist-create">Crear y asignar</button>
+        </div>
+        <div class="modal-actions">
+          <button type="button" id="close-tag-modal" class="primary-btn">Hecho</button>
+        </div>
+      </div>`;
+    overlay.hidden = false;
+    wire();
+  }
+
+  function wire() {
+    overlay.querySelectorAll('.tag-option').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tagId = btn.dataset.tag;
+        const tag = listTags(listId).find((t) => t.id === tagId);
+        assignTagToContacts(listId, tagId, selectedIds);
+        showToast(`Etiqueta "${tag.name}" añadida.`);
+        renderListContactsList(listId);
+      });
+    });
+    overlay.querySelectorAll('.tag-option-delete').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const tagId = btn.dataset.tag;
+        const tag = listTags(listId).find((t) => t.id === tagId);
+        const ok = await showConfirmModal({
+          title: 'Borrar etiqueta',
+          message: `¿Borrar la etiqueta "${tag.name}"? Se quitará de todos los contactos de este listado que la tengan.`,
+          confirmLabel: 'Borrar',
+        });
+        if (!ok) return;
+        deleteListTag(listId, tagId);
+        render();
+        renderListContactsList(listId);
+      });
+    });
+    document.getElementById('create-tag-btn').addEventListener('click', () => {
+      const input = document.getElementById('new-tag-input');
+      const name = input.value.trim();
+      if (!name) return;
+      const tag = createListTag(listId, name);
+      assignTagToContacts(listId, tag.id, selectedIds);
+      showToast(`Etiqueta "${tag.name}" creada y asignada.`);
+      renderListContactsList(listId);
+      render();
+    });
+    document.getElementById('close-tag-modal').addEventListener('click', () => {
+      closeModal();
+      renderListDetail(listId);
+    });
+    wireOverlayBackdropClose(overlay, () => {
+      closeModal();
+      renderListDetail(listId);
+    });
+  }
+
+  render();
 }
 
 function openAddToListModal(listId) {
