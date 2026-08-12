@@ -632,7 +632,7 @@ function renderListDetail(listId) {
   document.getElementById('back-btn').addEventListener('click', () => navigate('listas'));
   document.getElementById('add-contacts-btn').addEventListener('click', () => openAddToListModal(listId));
   document.getElementById('import-list-excel-btn').addEventListener('click', () => pickExcelFile((file) => handleExcelImport(file, listId)));
-  document.getElementById('export-list-excel-btn').addEventListener('click', () => exportExcel(listContacts(listId), `listado-${slugify(list.name)}`));
+  document.getElementById('export-list-excel-btn').addEventListener('click', () => exportExcel(getFilteredListContacts(listId), `listado-${slugify(list.name)}`));
   document.getElementById('toggle-select-btn').addEventListener('click', () => {
     listSelectionState.active = !listSelectionState.active;
     listSelectionState.selected.clear();
@@ -694,6 +694,10 @@ function renderListContactsList(listId) {
   const all = listContacts(listId);
   const contacts = getFilteredListContacts(listId);
   if (meta) meta.textContent = all.length === 0 ? '' : `${contacts.length} de ${all.length} contacto${all.length === 1 ? '' : 's'}`;
+  const exportBtn = document.getElementById('export-list-excel-btn');
+  if (exportBtn) {
+    exportBtn.textContent = contacts.length === all.length ? 'Exportar este listado a Excel' : `Exportar filtrados a Excel (${contacts.length})`;
+  }
   el.innerHTML =
     all.length === 0
       ? '<p class="empty">Este listado todavía no tiene contactos. Usa "+ Añadir contactos".</p>'
