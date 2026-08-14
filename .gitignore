@@ -1,0 +1,2 @@
+# Claude Code local state (may contain credentials/auth tokens)
+.claude/settings.local.json
