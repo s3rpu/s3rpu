@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <title>Red Neuronal — Demo</title>
+    <meta name="theme-color" content="#10161c" />
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧠</text></svg>" />
+    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/neural-network.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <h1>🧠 Red Neuronal</h1>
+      <div class="header-actions">
+        <a class="icon-btn" href="index.html">← Volver</a>
+      </div>
+    </header>
+    <main class="main nn-main">
+      <div class="card">
+        <p class="nn-intro">
+          Red neuronal feedforward (2 → 4 → 4 → 1) entrenada en el navegador con
+          backpropagation para aprender la función <strong>XOR</strong>. El grosor y color de
+          cada conexión reflejan el peso actual; el color de cada nodo refleja su activación.
+        </p>
+        <canvas id="nn-canvas" class="nn-canvas"></canvas>
+        <div class="nn-controls">
+          <button id="train-btn" class="icon-btn nn-primary">Entrenar</button>
+          <button id="reset-btn" class="icon-btn">Reiniciar</button>
+          <div class="nn-stats">
+            <span>Época: <strong id="epoch-value">0</strong></span>
+            <span>Error: <strong id="loss-value">—</strong></span>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <h2 class="section-title">Predicciones actuales</h2>
+        <div id="nn-outputs" class="nn-outputs"></div>
+      </div>
+    </main>
+    <script src="js/neural-network.js"></script>
+  </body>
+</html>
