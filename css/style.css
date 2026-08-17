@@ -552,6 +552,63 @@ body {
   border-style: inset;
 }
 
+.tag-option-rename {
+  background: var(--face);
+  border: 2px outset var(--border);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 12px;
+  font-family: inherit;
+  padding: 6px 10px;
+}
+
+.tag-option-rename:hover {
+  background: var(--hover-bg);
+  border-color: var(--hover-border);
+}
+
+.tag-option-rename:active {
+  border-style: inset;
+}
+
+.tag-filter-bar {
+  align-items: center;
+  margin-top: -6px;
+}
+
+.tag-filter-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  align-self: center;
+}
+
+.tag-filter-chip {
+  background: var(--face);
+  color: var(--text);
+  border: 2px outset var(--border);
+  border-radius: 0;
+  padding: 4px 10px;
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.tag-filter-chip:hover {
+  background: var(--hover-bg);
+  border-color: var(--hover-border);
+}
+
+.tag-filter-chip.active {
+  background: #c3d2ef;
+  border-style: inset;
+  font-weight: 700;
+}
+
+:root[data-theme='dark'] .tag-filter-chip.active {
+  background: #2f4f8f;
+  color: #ffffff;
+}
+
 /* ---------- Listados ---------- */
 
 .lists-grid {

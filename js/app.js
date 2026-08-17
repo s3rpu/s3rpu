@@ -573,8 +573,11 @@ let listSelectionState = { listId: null, active: false, selected: new Set() };
 // Filtro por forma de contacto (solo correo / solo teléfono / ambos / ninguno).
 let listFilterState = { listId: null, mode: 'all' };
 
-// Filtro por etiqueta (sub-listado dentro de un listado).
-let listTagFilterState = { listId: null, tagId: 'all' };
+// Filtro por etiqueta (sub-listado dentro de un listado). Un contacto puede
+// tener varias etiquetas a la vez, así que el filtro admite seleccionar
+// varias etiquetas a la vez: se muestran los contactos que tengan AL MENOS
+// UNA de las etiquetas marcadas (no hace falta que las tengan todas).
+let listTagFilterState = { listId: null, tagIds: new Set() };
 
 function renderListDetail(listId) {
   const list = DATA.lists.find((l) => l.id === listId);
@@ -586,7 +589,7 @@ function renderListDetail(listId) {
   if (listSearchState.listId !== listId) listSearchState = { listId, query: '' };
   if (listSelectionState.listId !== listId) listSelectionState = { listId, active: false, selected: new Set() };
   if (listFilterState.listId !== listId) listFilterState = { listId, mode: 'all' };
-  if (listTagFilterState.listId !== listId) listTagFilterState = { listId, tagId: 'all' };
+  if (listTagFilterState.listId !== listId) listTagFilterState = { listId, tagIds: new Set() };
   const tags = listTags(listId);
   main.innerHTML = `
     <div class="list-detail-header">
@@ -602,19 +605,24 @@ function renderListDetail(listId) {
         <option value="both">Correo y teléfono</option>
         <option value="none">Sin correo ni teléfono</option>
       </select>
-      ${
-        tags.length > 0
-          ? `<select id="list-tag-filter-select" class="icon-btn">
-               <option value="all">Todas las etiquetas</option>
-               ${tags.map((t) => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('')}
-             </select>`
-          : ''
-      }
       <button id="add-contacts-btn" class="primary-btn">+ Añadir contactos</button>
       <button id="import-list-excel-btn" class="icon-btn">Importar Excel a este listado</button>
       <button id="export-list-excel-btn" class="icon-btn">Exportar este listado a Excel</button>
       <button id="toggle-select-btn" class="icon-btn">${listSelectionState.active ? 'Cancelar selección' : '☑ Seleccionar'}</button>
     </div>
+    ${
+      tags.length > 0
+        ? `<div class="search-bar tag-filter-bar">
+             <span class="tag-filter-label">Etiquetas:</span>
+             ${tags
+               .map(
+                 (t) =>
+                   `<button type="button" class="tag-filter-chip${listTagFilterState.tagIds.has(t.id) ? ' active' : ''}" data-tag="${t.id}">${escapeHtml(t.name)}</button>`
+               )
+               .join('')}
+           </div>`
+        : ''
+    }
     ${
       listSelectionState.active
         ? `<div class="search-bar selection-toolbar">
@@ -632,7 +640,7 @@ function renderListDetail(listId) {
   document.getElementById('back-btn').addEventListener('click', () => navigate('listas'));
   document.getElementById('add-contacts-btn').addEventListener('click', () => openAddToListModal(listId));
   document.getElementById('import-list-excel-btn').addEventListener('click', () => pickExcelFile((file) => handleExcelImport(file, listId)));
-  document.getElementById('export-list-excel-btn').addEventListener('click', () => exportExcel(getFilteredListContacts(listId), `listado-${slugify(list.name)}`));
+  document.getElementById('export-list-excel-btn').addEventListener('click', () => exportExcel(getFilteredListContacts(listId), `listado-${slugify(list.name)}`, listId));
   document.getElementById('toggle-select-btn').addEventListener('click', () => {
     listSelectionState.active = !listSelectionState.active;
     listSelectionState.selected.clear();
@@ -662,30 +670,31 @@ function renderListDetail(listId) {
     listFilterState.mode = filterSelect.value;
     renderListContactsList(listId);
   });
-  const tagFilterSelect = document.getElementById('list-tag-filter-select');
-  if (tagFilterSelect) {
-    tagFilterSelect.value = listTagFilterState.tagId;
-    tagFilterSelect.addEventListener('change', () => {
-      listTagFilterState.tagId = tagFilterSelect.value;
+  document.querySelectorAll('.tag-filter-chip').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tagId = btn.dataset.tag;
+      if (listTagFilterState.tagIds.has(tagId)) listTagFilterState.tagIds.delete(tagId);
+      else listTagFilterState.tagIds.add(tagId);
+      btn.classList.toggle('active');
       renderListContactsList(listId);
     });
-  }
+  });
   renderListContactsList(listId);
 }
 
 // Aplica a la vez la búsqueda de texto, el filtro de correo/teléfono y el
-// filtro de etiqueta de un listado, para que "Seleccionar todos" y el propio
-// listado siempre muestren/seleccionen exactamente el mismo conjunto de
-// contactos.
+// filtro de etiquetas de un listado, para que "Seleccionar todos" y el
+// propio listado siempre muestren/seleccionen exactamente el mismo conjunto
+// de contactos.
 function getFilteredListContacts(listId) {
   const all = listContacts(listId);
   const query = listSearchState.listId === listId ? listSearchState.query : '';
   const mode = listFilterState.listId === listId ? listFilterState.mode : 'all';
-  const tagId = listTagFilterState.listId === listId ? listTagFilterState.tagId : 'all';
+  const tagIds = listTagFilterState.listId === listId ? listTagFilterState.tagIds : new Set();
   return all
     .filter((c) => (query ? contactMatches(c, query) : true))
     .filter((c) => matchesContactFilter(c, mode))
-    .filter((c) => (tagId === 'all' ? true : contactTagsInList(listId, c.id).some((t) => t.id === tagId)));
+    .filter((c) => (tagIds.size === 0 ? true : contactTagsInList(listId, c.id).some((t) => tagIds.has(t.id))));
 }
 
 function renderListContactsList(listId) {
@@ -806,6 +815,7 @@ function openAddTagModal(listId) {
                      (t) => `
                    <div class="tag-option-row">
                      <button type="button" class="tag-option" data-tag="${t.id}">${escapeHtml(t.name)}</button>
+                     <button type="button" class="tag-option-rename" data-tag="${t.id}" title="Renombrar etiqueta">✎</button>
                      <button type="button" class="tag-option-delete" data-tag="${t.id}" title="Borrar etiqueta">×</button>
                    </div>`
                    )
@@ -831,7 +841,19 @@ function openAddTagModal(listId) {
         const tag = listTags(listId).find((t) => t.id === tagId);
         assignTagToContacts(listId, tagId, selectedIds);
         showToast(`Etiqueta "${tag.name}" añadida.`);
-        renderListContactsList(listId);
+        renderListDetail(listId);
+      });
+    });
+    overlay.querySelectorAll('.tag-option-rename').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const tagId = btn.dataset.tag;
+        const tag = listTags(listId).find((t) => t.id === tagId);
+        const name = await showPromptModal({ title: 'Renombrar etiqueta', defaultValue: tag.name, confirmLabel: 'Renombrar' });
+        if (!name || !name.trim()) return;
+        renameListTag(listId, tagId, name);
+        showToast('Etiqueta renombrada.');
+        render();
+        renderListDetail(listId);
       });
     });
     overlay.querySelectorAll('.tag-option-delete').forEach((btn) => {
@@ -845,8 +867,9 @@ function openAddTagModal(listId) {
         });
         if (!ok) return;
         deleteListTag(listId, tagId);
+        listTagFilterState.tagIds.delete(tagId);
         render();
-        renderListContactsList(listId);
+        renderListDetail(listId);
       });
     });
     document.getElementById('create-tag-btn').addEventListener('click', () => {
@@ -856,8 +879,8 @@ function openAddTagModal(listId) {
       const tag = createListTag(listId, name);
       assignTagToContacts(listId, tag.id, selectedIds);
       showToast(`Etiqueta "${tag.name}" creada y asignada.`);
-      renderListContactsList(listId);
       render();
+      renderListDetail(listId);
     });
     document.getElementById('close-tag-modal').addEventListener('click', () => {
       closeModal();
@@ -1144,20 +1167,43 @@ function openImportReviewModal(pendingRows, listId) {
 // de verdad en vez de una lista plana.
 
 // contacts: lista a exportar (por defecto todos). filenamePrefix: para poder
-// distinguir la exportación completa de la de un listado concreto.
-async function exportExcel(contacts, filenamePrefix) {
+// distinguir la exportación completa de la de un listado concreto. listId
+// (opcional): si se indica, añade una columna "Etiquetas" con las etiquetas
+// de ese listado que tenga cada contacto, ya que las etiquetas son propias
+// de cada listado y solo tienen sentido en una exportación de un listado.
+async function exportExcel(contacts, filenamePrefix, listId) {
   try {
     const source = contacts || DATA.contacts;
-    const headers = DATA.fields.map((f) => f.label);
+    const includeTags = !!listId;
+    const headers = DATA.fields.map((f) => f.label).concat(includeTags ? ['Etiquetas'] : []);
     const sorted = source.slice().sort((a, b) => contactDisplayName(a).localeCompare(contactDisplayName(b), 'es'));
 
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Contactos');
-    sheet.columns = DATA.fields.map((field) => {
-      const longest = sorted.reduce((max, c) => Math.max(max, ((c.fields && c.fields[field.key]) || '').toString().length), field.label.length);
-      return { header: field.label, key: field.key, width: Math.min(45, Math.max(14, longest + 2)) };
+    sheet.columns = DATA.fields
+      .map((field) => {
+        const longest = sorted.reduce((max, c) => Math.max(max, ((c.fields && c.fields[field.key]) || '').toString().length), field.label.length);
+        return { header: field.label, key: field.key, width: Math.min(45, Math.max(14, longest + 2)) };
+      })
+      .concat(
+        includeTags
+          ? [
+              {
+                header: 'Etiquetas',
+                key: '_tags',
+                width: Math.min(
+                  45,
+                  Math.max(14, sorted.reduce((max, c) => Math.max(max, contactTagsInList(listId, c.id).map((t) => t.name).join(', ').length), 'Etiquetas'.length) + 2)
+                ),
+              },
+            ]
+          : []
+      );
+    sorted.forEach((c) => {
+      const row = { ...(c.fields || {}) };
+      if (includeTags) row._tags = contactTagsInList(listId, c.id).map((t) => t.name).join(', ');
+      sheet.addRow(row);
     });
-    sorted.forEach((c) => sheet.addRow(c.fields || {}));
 
     const headerRow = sheet.getRow(1);
     headerRow.eachCell((cell) => {

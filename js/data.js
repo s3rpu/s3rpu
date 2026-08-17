@@ -438,6 +438,18 @@ function createListTag(listId, name) {
   return tag;
 }
 
+function renameListTag(listId, tagId, name) {
+  const list = DATA.lists.find((l) => l.id === listId);
+  if (!list) return;
+  ensureListTags(list);
+  const tag = list.tags.find((t) => t.id === tagId);
+  if (!tag) return;
+  const trimmed = (name || '').toString().trim();
+  if (!trimmed) return;
+  tag.name = trimmed;
+  saveData(DATA);
+}
+
 function deleteListTag(listId, tagId) {
   const list = DATA.lists.find((l) => l.id === listId);
   if (!list) return;
