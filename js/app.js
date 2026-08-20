@@ -608,6 +608,7 @@ function renderListDetail(listId) {
       <button id="add-contacts-btn" class="primary-btn">+ Añadir contactos</button>
       <button id="import-list-excel-btn" class="icon-btn">Importar Excel a este listado</button>
       <button id="export-list-excel-btn" class="icon-btn">Exportar este listado a Excel</button>
+      <button id="manage-tags-btn" class="icon-btn">🏷️ Etiquetas</button>
       <button id="toggle-select-btn" class="icon-btn">${listSelectionState.active ? 'Cancelar selección' : '☑ Seleccionar'}</button>
     </div>
     ${
@@ -628,7 +629,6 @@ function renderListDetail(listId) {
         ? `<div class="search-bar selection-toolbar">
              <button id="select-all-btn" class="icon-btn">Seleccionar todos</button>
              <button id="select-none-btn" class="icon-btn">Ninguno</button>
-             <button id="add-tag-btn" class="icon-btn">🏷️ Agregar etiqueta</button>
              <button id="copy-emails-btn" class="primary-btn">📋 Copiar correos electrónicos</button>
              <span id="selection-count" class="section-title"></span>
            </div>`
@@ -641,6 +641,7 @@ function renderListDetail(listId) {
   document.getElementById('add-contacts-btn').addEventListener('click', () => openAddToListModal(listId));
   document.getElementById('import-list-excel-btn').addEventListener('click', () => pickExcelFile((file) => handleExcelImport(file, listId)));
   document.getElementById('export-list-excel-btn').addEventListener('click', () => exportExcel(getFilteredListContacts(listId), `listado-${slugify(list.name)}`, listId));
+  document.getElementById('manage-tags-btn').addEventListener('click', () => openAddTagModal(listId));
   document.getElementById('toggle-select-btn').addEventListener('click', () => {
     listSelectionState.active = !listSelectionState.active;
     listSelectionState.selected.clear();
@@ -655,7 +656,6 @@ function renderListDetail(listId) {
       listSelectionState.selected.clear();
       renderListContactsList(listId);
     });
-    document.getElementById('add-tag-btn').addEventListener('click', () => openAddTagModal(listId));
     document.getElementById('copy-emails-btn').addEventListener('click', () => copySelectedEmails());
   }
   const searchInput = document.getElementById('list-search-input');
@@ -793,19 +793,28 @@ function copySelectedEmails() {
 // ---------- Etiquetas (sub-listados dentro de un listado) ----------
 
 function openAddTagModal(listId) {
-  const selectedIds = Array.from(listSelectionState.selected);
-  if (selectedIds.length === 0) {
-    showToast('No has seleccionado ningún contacto.');
-    return;
-  }
   const overlay = document.getElementById('modal-overlay');
+
+  // Sin contactos seleccionados el modal sirve para crear/renombrar/borrar
+  // etiquetas (gestión); con contactos seleccionados, además se pueden
+  // asignar con un clic. Se recalcula en cada render por si el usuario activa
+  // la selección mientras el modal ya está abierto.
+  function selectedIds() {
+    return Array.from(listSelectionState.selected);
+  }
 
   function render() {
     const tags = listTags(listId);
+    const ids = selectedIds();
+    const hasSelection = ids.length > 0;
     overlay.innerHTML = `
       <div class="modal card">
-        <h3>Agregar etiqueta</h3>
-        <p class="dup-intro">${selectedIds.length} contacto${selectedIds.length === 1 ? '' : 's'} seleccionado${selectedIds.length === 1 ? '' : 's'}.</p>
+        <h3>Etiquetas</h3>
+        <p class="dup-intro">${
+          hasSelection
+            ? `${ids.length} contacto${ids.length === 1 ? '' : 's'} seleccionado${ids.length === 1 ? '' : 's'}. Toca una etiqueta para asignarla.`
+            : 'Crea, renombra o borra las etiquetas de este listado. Selecciona contactos antes para poder asignárselas con un clic.'
+        }</p>
         ${
           tags.length === 0
             ? '<p class="empty">Todavía no hay etiquetas en este listado. Crea la primera abajo.</p>'
@@ -814,7 +823,7 @@ function openAddTagModal(listId) {
                    .map(
                      (t) => `
                    <div class="tag-option-row">
-                     <button type="button" class="tag-option" data-tag="${t.id}">${escapeHtml(t.name)}</button>
+                     <button type="button" class="tag-option${hasSelection ? '' : ' tag-option-static'}" data-tag="${t.id}"${hasSelection ? '' : ' disabled'}>${escapeHtml(t.name)}</button>
                      <button type="button" class="tag-option-rename" data-tag="${t.id}" title="Renombrar etiqueta">✎</button>
                      <button type="button" class="tag-option-delete" data-tag="${t.id}" title="Borrar etiqueta">×</button>
                    </div>`
@@ -824,7 +833,7 @@ function openAddTagModal(listId) {
         }
         <div class="addlist-new">
           <input type="text" placeholder="Crear etiqueta…" class="addlist-input" id="new-tag-input" />
-          <button type="button" id="create-tag-btn" class="addlist-create">Crear y asignar</button>
+          <button type="button" id="create-tag-btn" class="addlist-create">${hasSelection ? 'Crear y asignar' : 'Crear etiqueta'}</button>
         </div>
         <div class="modal-actions">
           <button type="button" id="close-tag-modal" class="primary-btn">Hecho</button>
@@ -837,9 +846,11 @@ function openAddTagModal(listId) {
   function wire() {
     overlay.querySelectorAll('.tag-option').forEach((btn) => {
       btn.addEventListener('click', () => {
+        const ids = selectedIds();
+        if (ids.length === 0) return;
         const tagId = btn.dataset.tag;
         const tag = listTags(listId).find((t) => t.id === tagId);
-        assignTagToContacts(listId, tagId, selectedIds);
+        assignTagToContacts(listId, tagId, ids);
         showToast(`Etiqueta "${tag.name}" añadida.`);
         renderListDetail(listId);
       });
@@ -877,8 +888,13 @@ function openAddTagModal(listId) {
       const name = input.value.trim();
       if (!name) return;
       const tag = createListTag(listId, name);
-      assignTagToContacts(listId, tag.id, selectedIds);
-      showToast(`Etiqueta "${tag.name}" creada y asignada.`);
+      const ids = selectedIds();
+      if (ids.length > 0) {
+        assignTagToContacts(listId, tag.id, ids);
+        showToast(`Etiqueta "${tag.name}" creada y asignada.`);
+      } else {
+        showToast(`Etiqueta "${tag.name}" creada.`);
+      }
       render();
       renderListDetail(listId);
     });

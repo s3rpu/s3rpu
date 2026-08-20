@@ -533,6 +533,18 @@ body {
   border-style: inset;
 }
 
+.tag-option:disabled,
+.tag-option-static {
+  cursor: default;
+  color: var(--text-dim);
+  opacity: 0.7;
+}
+
+.tag-option:disabled:hover {
+  background: var(--face);
+  border-color: var(--border);
+}
+
 .tag-option-delete {
   background: var(--face);
   border: 2px outset var(--border);
