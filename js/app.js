@@ -913,30 +913,111 @@ function openAddTagModal(listId) {
 
 function openAddToListModal(listId) {
   const overlay = document.getElementById('modal-overlay');
-  overlay.innerHTML = `
-    <div class="modal card">
-      <h3>Añadir contactos al listado</h3>
-      <input type="text" id="add-search-input" placeholder="Buscar contacto…" class="modal-search" />
-      <div id="add-search-meta" class="section-title"></div>
-      <div id="add-search-results" class="contact-list compact"></div>
-      <div class="modal-actions">
-        <button type="button" id="close-add-modal" class="primary-btn">Hecho</button>
-      </div>
-    </div>`;
-  overlay.hidden = false;
   const RESULT_LIMIT = 200;
+  // "Seleccionar varios" es un modo aparte: en vez de añadir de uno en uno
+  // con el botón de cada fila, se marcan varios con casillas y se añaden
+  // todos juntos con un solo clic (con "Seleccionar todos" para marcar de
+  // golpe todos los resultados visibles).
+  let selectionMode = false;
+  const selected = new Set();
+  let currentMatches = [];
+
+  function renderShell() {
+    const previousQuery = document.getElementById('add-search-input') ? document.getElementById('add-search-input').value : '';
+    overlay.innerHTML = `
+      <div class="modal card modal-wide">
+        <h3>Añadir contactos al listado</h3>
+        <div class="search-bar">
+          <input type="text" id="add-search-input" placeholder="Buscar contacto…" class="modal-search" />
+          <button type="button" id="toggle-multiselect-btn" class="icon-btn">${selectionMode ? 'Cancelar selección' : '☑ Seleccionar varios'}</button>
+        </div>
+        ${
+          selectionMode
+            ? `<div class="search-bar selection-toolbar">
+                 <button type="button" id="add-select-all-btn" class="icon-btn">Seleccionar todos</button>
+                 <button type="button" id="add-select-none-btn" class="icon-btn">Ninguno</button>
+                 <button type="button" id="add-selected-btn" class="primary-btn">+ Añadir seleccionados</button>
+                 <span id="add-selection-count" class="section-title"></span>
+               </div>`
+            : ''
+        }
+        <div id="add-search-meta" class="section-title"></div>
+        <div id="add-search-results" class="contact-list compact"></div>
+        <div class="modal-actions">
+          <button type="button" id="close-add-modal" class="primary-btn">Hecho</button>
+        </div>
+      </div>`;
+    overlay.hidden = false;
+
+    const searchInput = document.getElementById('add-search-input');
+    searchInput.value = previousQuery;
+    searchInput.addEventListener('input', (e) => renderResults(e.target.value));
+
+    document.getElementById('toggle-multiselect-btn').addEventListener('click', () => {
+      selectionMode = !selectionMode;
+      selected.clear();
+      renderShell();
+    });
+    document.getElementById('close-add-modal').addEventListener('click', () => {
+      closeModal();
+      renderCurrentTab();
+    });
+    wireOverlayBackdropClose(overlay, () => {
+      closeModal();
+      renderCurrentTab();
+    });
+
+    if (selectionMode) {
+      document.getElementById('add-select-all-btn').addEventListener('click', () => {
+        currentMatches.forEach((c) => selected.add(c.id));
+        renderResults(searchInput.value);
+      });
+      document.getElementById('add-select-none-btn').addEventListener('click', () => {
+        selected.clear();
+        renderResults(searchInput.value);
+      });
+      document.getElementById('add-selected-btn').addEventListener('click', () => {
+        if (selected.size === 0) {
+          showToast('No has seleccionado ningún contacto.');
+          return;
+        }
+        const list = DATA.lists.find((l) => l.id === listId);
+        const newlyAdded = Array.from(selected).filter((cid) => !list.contactIds.includes(cid));
+        selected.forEach((cid) => addContactToList(listId, cid));
+        showToast(
+          newlyAdded.length > 0
+            ? `✅ ${newlyAdded.length} contacto${newlyAdded.length === 1 ? '' : 's'} añadido${newlyAdded.length === 1 ? '' : 's'} al listado.`
+            : 'Los contactos seleccionados ya estaban en el listado.'
+        );
+        selected.clear();
+        renderResults(searchInput.value);
+      });
+    } else {
+      searchInput.focus();
+    }
+
+    renderResults(previousQuery);
+  }
 
   function renderResults(query) {
     const all = searchContacts(query);
     const matches = all.slice(0, RESULT_LIMIT);
+    currentMatches = matches;
     const meta = document.getElementById('add-search-meta');
     meta.textContent = all.length > RESULT_LIMIT ? `Mostrando ${RESULT_LIMIT} de ${all.length} resultados. Afina la búsqueda para ver más.` : `${all.length} resultado${all.length === 1 ? '' : 's'}`;
     const resultsEl = document.getElementById('add-search-results');
     const list = DATA.lists.find((l) => l.id === listId);
     resultsEl.innerHTML = matches.length
       ? matches
-          .map(
-            (c) => `
+          .map((c) =>
+            selectionMode
+              ? `
+        <div class="card contact-card compact" data-id="${c.id}">
+          <label class="contact-select"><input type="checkbox" class="add-select-checkbox" data-id="${c.id}" ${selected.has(c.id) ? 'checked' : ''} /></label>
+          <div class="contact-name">${escapeHtml(contactDisplayName(c))}</div>
+          ${list.contactIds.includes(c.id) ? '<span class="section-title">Ya en el listado</span>' : ''}
+        </div>`
+              : `
         <div class="card contact-card compact" data-id="${c.id}">
           <div class="contact-name">${escapeHtml(contactDisplayName(c))}</div>
           <button class="icon-btn toggle-add-btn" data-id="${c.id}">${list.contactIds.includes(c.id) ? '✓ En el listado' : 'Añadir'}</button>
@@ -944,26 +1025,37 @@ function openAddToListModal(listId) {
           )
           .join('')
       : '<p class="empty">Sin resultados.</p>';
-    resultsEl.querySelectorAll('.toggle-add-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const cid = btn.dataset.id;
-        if (list.contactIds.includes(cid)) removeContactFromList(listId, cid);
-        else addContactToList(listId, cid);
-        renderResults(document.getElementById('add-search-input').value);
+
+    if (selectionMode) {
+      resultsEl.querySelectorAll('.add-select-checkbox').forEach((cb) => {
+        cb.addEventListener('change', () => {
+          const cid = cb.dataset.id;
+          if (cb.checked) selected.add(cid);
+          else selected.delete(cid);
+          updateAddSelectionCount();
+        });
       });
-    });
+      updateAddSelectionCount();
+    } else {
+      resultsEl.querySelectorAll('.toggle-add-btn').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const cid = btn.dataset.id;
+          if (list.contactIds.includes(cid)) removeContactFromList(listId, cid);
+          else addContactToList(listId, cid);
+          renderResults(document.getElementById('add-search-input').value);
+        });
+      });
+    }
   }
 
-  renderResults('');
-  document.getElementById('add-search-input').addEventListener('input', (e) => renderResults(e.target.value));
-  document.getElementById('close-add-modal').addEventListener('click', () => {
-    closeModal();
-    renderCurrentTab();
-  });
-  wireOverlayBackdropClose(overlay, () => {
-    closeModal();
-    renderCurrentTab();
-  });
+  function updateAddSelectionCount() {
+    const el = document.getElementById('add-selection-count');
+    if (!el) return;
+    const n = selected.size;
+    el.textContent = `${n} seleccionado${n === 1 ? '' : 's'}`;
+  }
+
+  renderShell();
 }
 
 // ---------- Importar Excel/CSV ----------
