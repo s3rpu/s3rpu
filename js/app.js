@@ -602,6 +602,7 @@ function renderListDetail(listId) {
         <option value="all">Todos</option>
         <option value="email-only">Solo con correo</option>
         <option value="phone-only">Solo con teléfono</option>
+        <option value="mobile-only">Solo con móviles</option>
         <option value="both">Correo y teléfono</option>
         <option value="none">Sin correo ni teléfono</option>
       </select>

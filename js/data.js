@@ -360,16 +360,43 @@ function contactHasFieldKind(contact, kind) {
   return DATA.fields.some((field) => fieldKind(field) === kind && f[field.key]);
 }
 
+// Un móvil español son 9 dígitos que empiezan por 6 o 7 (los fijos
+// empiezan por 8 o 9); se admite un prefijo delante (+34, 0034...) tomando
+// solo los últimos 9 dígitos, para no fallar con números ya normalizados
+// con prefijo internacional.
+function isMobileNumber(value) {
+  const digits = (value || '').toString().replace(/[^0-9]/g, '');
+  if (digits.length < 9) return false;
+  const last9 = digits.slice(-9);
+  return /^[67]/.test(last9);
+}
+
+// Comprueba el número en sí (no el nombre del campo), para no depender de
+// que esté guardado justo en "Teléfono móvil": un número que empiece por 6
+// o 7 cuenta como móvil aunque esté en "Teléfono" o incluso mezclado en
+// "Teléfono fijo" por error.
+function contactHasMobilePhone(contact) {
+  const f = contact.fields || {};
+  return DATA.fields.some((field) => {
+    if (fieldKind(field) !== 'phone') return false;
+    const raw = f[field.key];
+    if (!raw) return false;
+    return splitMultiValues(raw).some((part) => isMobileNumber(part));
+  });
+}
+
 // Filtra contactos según cómo se les puede contactar: 'all' (sin filtro),
 // 'email-only' (solo tienen correo, ni un teléfono), 'phone-only' (solo
-// tienen teléfono, ningún correo), 'both' (tienen ambos) o 'none' (no
-// tienen ni correo ni teléfono).
+// tienen teléfono, ningún correo), 'mobile-only' (tienen al menos un
+// número de móvil), 'both' (tienen ambos) o 'none' (no tienen ni correo ni
+// teléfono).
 function matchesContactFilter(contact, mode) {
   if (!mode || mode === 'all') return true;
   const hasEmail = contactHasFieldKind(contact, 'email');
   const hasPhone = contactHasFieldKind(contact, 'phone');
   if (mode === 'email-only') return hasEmail && !hasPhone;
   if (mode === 'phone-only') return hasPhone && !hasEmail;
+  if (mode === 'mobile-only') return contactHasMobilePhone(contact);
   if (mode === 'both') return hasEmail && hasPhone;
   if (mode === 'none') return !hasEmail && !hasPhone;
   return true;
