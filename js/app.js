@@ -913,7 +913,6 @@ function openAddTagModal(listId) {
 
 function openAddToListModal(listId) {
   const overlay = document.getElementById('modal-overlay');
-  const RESULT_LIMIT = 200;
   // "Seleccionar varios" es un modo aparte: en vez de añadir de uno en uno
   // con el botón de cada fila, se marcan varios con casillas y se añaden
   // todos juntos con un solo clic (con "Seleccionar todos" para marcar de
@@ -1000,11 +999,10 @@ function openAddToListModal(listId) {
   }
 
   function renderResults(query) {
-    const all = searchContacts(query);
-    const matches = all.slice(0, RESULT_LIMIT);
+    const matches = searchContacts(query);
     currentMatches = matches;
     const meta = document.getElementById('add-search-meta');
-    meta.textContent = all.length > RESULT_LIMIT ? `Mostrando ${RESULT_LIMIT} de ${all.length} resultados. Afina la búsqueda para ver más.` : `${all.length} resultado${all.length === 1 ? '' : 's'}`;
+    meta.textContent = `${matches.length} resultado${matches.length === 1 ? '' : 's'}`;
     const resultsEl = document.getElementById('add-search-results');
     const list = DATA.lists.find((l) => l.id === listId);
     resultsEl.innerHTML = matches.length
