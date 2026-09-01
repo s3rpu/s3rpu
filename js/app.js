@@ -1266,6 +1266,83 @@ function openImportReviewModal(pendingRows, listId) {
   render();
 }
 
+// ---------- Preferencias: estándar de campos ----------
+
+function countFieldUsage(key) {
+  return DATA.contacts.filter((c) => c.fields && c.fields[key]).length;
+}
+
+function openPreferencesModal() {
+  const overlay = document.getElementById('modal-overlay');
+
+  function render() {
+    overlay.innerHTML = `
+      <div class="modal card modal-wide">
+        <h3>⚙ Preferencias — Estándar de campos</h3>
+        <p class="dup-intro">
+          Desmarca los campos que no quieras mantener. Al pulsar "Actualizar", esos campos se eliminan: si algún contacto tenía ahí un correo o un teléfono, se mueve automáticamente al campo de correo/teléfono correspondiente; cualquier otro dato se guarda en Notas para no perderlo.
+        </p>
+        <div class="tag-options">
+          ${DATA.fields
+            .map((f) => {
+              const locked = f.key === 'nombre';
+              const n = countFieldUsage(f.key);
+              return `
+            <label class="field-pref-row${locked ? ' field-pref-locked' : ''}" title="${locked ? 'El campo Nombre no se puede eliminar.' : ''}">
+              <input type="checkbox" class="field-pref-checkbox" data-key="${f.key}" ${f.markedForRemoval ? '' : 'checked'} ${locked ? 'disabled' : ''} />
+              <span class="field-pref-label">${escapeHtml(f.label)}</span>
+              <span class="field-pref-count">${n} contacto${n === 1 ? '' : 's'}</span>
+            </label>`;
+            })
+            .join('')}
+        </div>
+        <div class="modal-actions modal-actions-start">
+          <button type="button" id="prefs-update-btn" class="primary-btn">Actualizar</button>
+        </div>
+        <div class="modal-actions">
+          <button type="button" id="close-prefs-modal" class="icon-btn">Cerrar</button>
+        </div>
+      </div>`;
+    overlay.hidden = false;
+    wire();
+  }
+
+  function wire() {
+    overlay.querySelectorAll('.field-pref-checkbox').forEach((cb) => {
+      cb.addEventListener('change', () => {
+        const field = DATA.fields.find((f) => f.key === cb.dataset.key);
+        if (!field) return;
+        field.markedForRemoval = !cb.checked;
+        saveData(DATA);
+      });
+    });
+    document.getElementById('prefs-update-btn').addEventListener('click', async () => {
+      const toRemove = DATA.fields.filter((f) => f.markedForRemoval && f.key !== 'nombre');
+      if (toRemove.length === 0) {
+        showToast('No hay campos marcados para eliminar.');
+        return;
+      }
+      const ok = await showConfirmModal({
+        title: 'Actualizar estándar de campos',
+        message: `Se eliminarán ${toRemove.length} campo${toRemove.length === 1 ? '' : 's'} (${toRemove.map((f) => f.label).join(', ')}). Los correos y teléfonos que tuvieran se moverán al campo correspondiente; el resto de datos se guardará en Notas. Esta acción no se puede deshacer.`,
+        confirmLabel: 'Actualizar',
+      });
+      if (!ok) return;
+      const result = updateFieldsStandard();
+      showToast(
+        `✅ Se actualizaron ${result.updatedContacts} contacto${result.updatedContacts === 1 ? '' : 's'} y se eliminaron ${result.removedFields} campo${result.removedFields === 1 ? '' : 's'}.` +
+          (result.keptNotes ? ' Se mantuvo el campo "Notas" porque hacía falta como destino de datos sin clasificar.' : '')
+      );
+      render();
+      renderCurrentTab();
+    });
+    document.getElementById('close-prefs-modal').addEventListener('click', closeModal);
+    wireOverlayBackdropClose(overlay, closeModal);
+  }
+
+  render();
+}
+
 // ---------- Exportar a Excel ----------
 // Usa ExcelJS (en vez de la librería de importación) porque es la que
 // realmente escribe estilos: cabecera en color, texto en negrita,
@@ -1406,6 +1483,7 @@ function init() {
     if (file) handleExcelImport(file);
     evt.target.value = '';
   });
+  document.getElementById('preferences-btn').addEventListener('click', openPreferencesModal);
   window.addEventListener('hashchange', renderCurrentTab);
   renderCurrentTab();
 }

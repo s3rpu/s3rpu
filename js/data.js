@@ -256,6 +256,103 @@ function cleanAllContactsData() {
   return changed;
 }
 
+// ---------- Preferencias: estándar de campos ----------
+// Con tantos campos (los del Excel real más los que se van creando con
+// "+ Añadir campo" o al importar), conviene poder marcar cuáles quedan
+// fuera del "estándar" y, al actualizar, mover automáticamente su
+// contenido al campo que corresponda según lo que hay escrito (no según el
+// nombre del campo): así un correo metido por error en "Observaciones" se
+// reubica solo en cuanto se elimina ese campo.
+
+function looksLikeEmail(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test((value || '').toString().trim());
+}
+
+// Heurística deliberadamente conservadora: solo cuenta como teléfono un
+// valor corto compuesto (aparte de separadores típicos +, espacios,
+// guiones y paréntesis) enteramente por 9 a 12 dígitos, para no confundir
+// con DNI, códigos postales o fechas que puedan aparecer en campos libres.
+function looksLikePhone(value) {
+  const str = (value || '').toString().trim();
+  if (!str || str.includes('@') || str.length > 20) return false;
+  const nonDigitChars = str.replace(/[0-9+\-\s().]/g, '');
+  if (nonDigitChars.length > 0) return false;
+  const digits = str.replace(/[^0-9]/g, '');
+  return digits.length >= 9 && digits.length <= 12;
+}
+
+// Mueve todo el contenido de los campos marcados como "para eliminar"
+// (field.markedForRemoval) al campo del estándar que corresponda: un
+// correo va al primer campo de correo que se mantenga, un teléfono al
+// primer campo de teléfono que se mantenga, y cualquier otro dato (que no
+// se reconozca como correo ni teléfono) a "Notas", para no perder
+// información aunque no encaje en ningún campo conocido. Si hiciera falta
+// "Notas" como destino pero también estuviera marcada para eliminar, se
+// mantiene igualmente (nunca se borra el único sitio donde guardar algo).
+function updateFieldsStandard() {
+  const toRemove = DATA.fields.filter((f) => f.markedForRemoval && f.key !== 'nombre');
+  if (toRemove.length === 0) return { updatedContacts: 0, removedFields: 0, keptNotes: false };
+
+  const keepFields = DATA.fields.filter((f) => !toRemove.includes(f));
+  let keptNotes = false;
+
+  function pickTargetField(kind) {
+    const preferredKeys = kind === 'email' ? ['correo_electronico', 'correo_secundario'] : ['telefono_movil', 'telefono_fijo'];
+    for (const key of preferredKeys) {
+      const found = keepFields.find((f) => f.key === key);
+      if (found) return found;
+    }
+    return keepFields.find((f) => fieldKind(f) === kind) || null;
+  }
+
+  function ensureNotesTarget() {
+    let notesField = keepFields.find((f) => f.key === 'notas');
+    if (notesField) return notesField;
+    notesField = DATA.fields.find((f) => f.key === 'notas');
+    if (notesField) {
+      notesField.markedForRemoval = false;
+      keepFields.push(notesField);
+      const idx = toRemove.indexOf(notesField);
+      if (idx !== -1) toRemove.splice(idx, 1);
+    } else {
+      notesField = ensureField('Notas');
+      keepFields.push(notesField);
+    }
+    keptNotes = true;
+    return notesField;
+  }
+
+  let updatedContacts = 0;
+  DATA.contacts.forEach((contact) => {
+    const f = contact.fields || {};
+    let changed = false;
+    toRemove.forEach((field) => {
+      const raw = f[field.key];
+      if (!raw) return;
+      splitMultiValues(raw).forEach((part) => {
+        const trimmed = part.trim();
+        if (!trimmed) return;
+        let target;
+        if (looksLikeEmail(trimmed)) target = pickTargetField('email') || ensureNotesTarget();
+        else if (looksLikePhone(trimmed)) target = pickTargetField('phone') || ensureNotesTarget();
+        else target = ensureNotesTarget();
+        const separator = target.key === 'notas' ? '\n' : ' / ';
+        f[target.key] = f[target.key] ? `${f[target.key]}${separator}${trimmed}` : trimmed;
+      });
+      delete f[field.key];
+      changed = true;
+    });
+    if (changed) {
+      contact.fields = cleanContactFields(f);
+      updatedContacts++;
+    }
+  });
+
+  DATA.fields = DATA.fields.filter((field) => !toRemove.includes(field));
+  saveData(DATA);
+  return { updatedContacts, removedFields: toRemove.length, keptNotes };
+}
+
 // Comprueba si un contacto tiene algún dato relleno en campos de un tipo
 // dado ('phone' o 'email'), sin importar en qué campo concreto esté.
 function contactHasFieldKind(contact, kind) {
